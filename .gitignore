@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.egg
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+data/*.log
+*.out
+*.err
+
+# Test/temp caches
+.pytest_cache/
+.pytest_tmp/
+.pytest-tmp/
+.tmp/
+
+# One-off scripts/artifacts (moved out of the repo root)
+archive/
+
+# Database
+data/*
+!data/.gitkeep
+
+# Uploads/Outputs (runtime generated)
+uploads/*
+!uploads/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# Node
+node_modules/
+
+# Build/runtime output
+output/
+web/dist/
+# Coverage / tooling caches
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.tox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Databases and local state (defensive; data/ already ignored)
+*.db
+*.sqlite
+*.sqlite3
+celerybeat-schedule

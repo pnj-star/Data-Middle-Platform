@@ -1,0 +1,2755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文档处理平台</title>
+<style>
+
+:root {
+  color-scheme: light;
+  --paper: #fafafa;
+  --surface: #ffffff;
+  --surface-sunken: #f4f4f5;
+  --ink: #0a0a0a;
+  --ink-soft: #52525b;
+  --ink-faint: #a1a1aa;
+  --line: #ececee;
+  --line-strong: #dcdce0;
+
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-soft: #a78bfa;
+  --accent-wash: #f3effe;
+  --accent-glow: rgba(124, 58, 237, 0.16);
+
+  --ok: #16a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.04);
+  --shadow-md: 0 8px 30px rgba(10, 10, 10, 0.06);
+  --shadow-lg: 0 24px 60px rgba(10, 10, 10, 0.09);
+  --shadow-accent: 0 12px 34px rgba(124, 58, 237, 0.16);
+
+  --sidebar-w: 232px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+a { color: var(--accent); }
+::selection { background: var(--accent-glow); }
+
+/* ── App shell: fixed sidebar + scrollable main ─────────────────── */
+.app-shell { min-height: 100vh; }
+.sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 14px 18px;
+  z-index: 40;
+}
+.sidebar__brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.025em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 4px;
+}
+.sidebar__mark {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  box-shadow: 0 2px 7px var(--accent-glow);
+  flex: 0 0 auto;
+}
+.sidebar__mark svg { width: 15px; height: 15px; }
+.sidebar__tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 2px 8px 12px;
+}
+.sidebar__nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.sidebar__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease);
+  position: relative;
+  cursor: pointer;
+}
+.sidebar__nav-item:hover { background: var(--surface-sunken); color: var(--ink); }
+.sidebar__nav-item--active { background: var(--accent-wash); color: var(--accent-strong); }
+.sidebar__nav-item--active::before {
+  content: "";
+  position: absolute;
+  left: -14px; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 20px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+.sidebar__nav-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--ink-faint); }
+.sidebar__nav-item--active .sidebar__nav-icon { color: var(--accent); }
+.sidebar__bottom { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.sidebar__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0 4px;
+}
+.key-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+.key-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.sidebar__status { font-size: 11px; color: var(--ink-faint); padding: 0 4px; min-height: 14px; }
+
+.app-main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  padding: 32px clamp(20px, 3vw, 44px) 90px;
+  max-width: 1240px;
+}
+
+/* ── Page header ─────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+  flex-wrap: wrap;
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.eyebrow::before { content: "//"; color: var(--accent-soft); }
+.page-header__title { font-size: clamp(26px, 3.2vw, 34px); line-height: 1.1; margin-top: 8px; }
+.page-header__description { color: var(--ink-soft); font-size: 14px; line-height: 1.7; max-width: 560px; margin: 10px 0 0; }
+
+/* compact stats in the page-header aside */
+.header-stats { display: flex; gap: 10px; }
+.header-stats .stat-card {
+  min-width: 148px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.header-stats .stat-icon { width: 26px; height: 26px; color: var(--accent); flex-shrink: 0; }
+.header-stats .stat-num { font-size: 20px; font-weight: 700; font-family: var(--font-display); letter-spacing: -0.02em; }
+.header-stats .stat-desc { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); margin-top: 1px; }
+
+/* ── Card / generic ──────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.card-header { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.muted { color: var(--ink-faint); font-size: 12px; }
+
+/* ── Upload ──────────────────────────────────────────────────────── */
+.upload-collapse__summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  margin-bottom: 4px;
+}
+.upload-collapse__summary::-webkit-details-marker { display: none; }
+.upload-collapse__summary::before {
+  content: "▾";
+  color: var(--accent);
+  font-size: 12px;
+  transition: transform 0.2s var(--ease);
+}
+.upload-collapse:not([open]) .upload-collapse__summary::before { transform: rotate(-90deg); }
+.upload-collapse__summary .muted { font-weight: 400; }
+.dropzone {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--paper);
+  margin-bottom: 14px;
+}
+.dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--accent-wash); }
+.dropzone .icon { width: 36px; height: 36px; margin: 0 auto; color: var(--accent-soft); }
+.dropzone p { color: var(--ink-soft); font-size: 14px; margin-top: 6px; }
+.dropzone__hint { font-size: 12px !important; color: var(--ink-faint) !important; font-family: var(--font-mono); }
+.file-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.file-row:last-child { border-bottom: none; }
+.file-row .file-icon { width: 18px; height: 18px; color: var(--ink-faint); }
+.file-row .file-name { flex: 1; font-size: 13px; }
+.file-row .file-meta { font-size: 12px; color: var(--ink-faint); font-family: var(--font-mono); }
+
+/* ── Buttons / forms ─────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-sunken); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 4px 14px var(--accent-glow); }
+.btn-primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+.btn-danger { color: var(--danger); border-color: var(--danger); background: #fff; }
+.btn-danger:hover { background: #fef2f2; }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--ink-faint); }
+.btn-ghost:hover { background: var(--surface-sunken); color: var(--danger); }
+.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 7px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+input, select, textarea {
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+textarea { width: 100%; min-height: 300px; font-family: var(--font-mono); font-size: 12px; resize: vertical; line-height: 1.6; }
+
+.form-row { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.form-row label { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+.form-row input[type="range"] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+.form-row input[type="number"] { font-family: var(--font-mono); }
+.full-pipeline-row { margin: 4px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); }
+
+/* ── Pipeline two-column grid ────────────────────────────────────── */
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 18px;
+}
+@media (max-width: 900px) {
+  .pipeline-grid { grid-template-columns: 1fr; }
+}
+
+.file-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 900px) { .file-panel { position: static; max-height: none; } }
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+}
+.panel-head__titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.panel-head__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-head__scope {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-head__scope-select {
+  width: 118px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.panel-head__count { color: var(--ink-faint); font-weight: 400; font-family: var(--font-mono); font-size: 12px; }
+.file-search {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.file-search__row { display: flex; gap: 6px; align-items: center; }
+.file-search input { min-width: 0; width: 100%; padding: 6px 8px; font-size: 12px; }
+.file-search__ids { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.file-search__clear { flex: 0 0 auto; padding: 6px 7px; }
+
+.file-list { overflow-y: auto; }
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.12s;
+  position: relative;
+}
+.file-list-item:last-child { border-bottom: none; }
+.file-list-item:hover { background: var(--paper); }
+.file-list-item--active { background: var(--accent-wash); }
+.file-list-item--active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.file-list-item .file-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--ink-faint); }
+.file-list-item--active .file-icon { color: var(--accent); }
+.file-list-item__body { flex: 1; min-width: 0; }
+.file-list-item__name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-list-item__meta { font-size: 11px; color: var(--ink-faint); margin-top: 1px; font-family: var(--font-mono); }
+.file-list-item__side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.file-list-item__del { opacity: 0; }
+.file-list-item:hover .file-list-item__del { opacity: 1; }
+
+/* stage progress dots: 转换 / 切片 / 入库 */
+.stage-dots { display: flex; flex-direction: column; gap: 3px; }
+.stage-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  flex: 0 0 auto;
+}
+.stage-dot.is-done { background: var(--ok); }
+.stage-dot.is-failed { background: var(--danger); }
+.stage-dot.is-running {
+  background: var(--accent);
+  animation: pulse 1s var(--ease) infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ── Workflow panel (right column) ───────────────────────────────── */
+.workflow-panel { min-width: 0; }
+.workflow-empty .empty-state { padding: 60px 20px; }
+.workflow-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 2px 14px;
+  margin-bottom: 2px;
+}
+.workflow-head .file-icon { width: 22px; height: 22px; color: var(--accent); }
+.workflow-head__body { min-width: 0; }
+.workflow-head__title { font-size: 16px; font-weight: 600; font-family: var(--font-display); letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-head__meta { font-size: 12px; color: var(--ink-faint); margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+
+.stage-card { padding: 16px 18px; }
+.stage-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stage-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid var(--accent-soft);
+  background: var(--accent-wash);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.stage-title { font-size: 14px; font-weight: 600; font-family: var(--font-display); letter-spacing: -0.01em; }
+.stage-card__actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.stage-card__subhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.stage-card__hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunken);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.stage-convert-preview { margin-top: 4px; }
+.clean-report {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+}
+.clean-report__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.clean-report__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── Badges ──────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.badge-success { background: #e8f7ee; color: #15803d; }
+.badge-warn { background: #fdf3e3; color: #b45309; }
+.badge-info { background: var(--accent-wash); color: var(--accent-strong); }
+.badge-danger { background: #fdecec; color: #b91c1c; }
+.badge-muted { background: var(--surface-sunken); color: var(--ink-soft); }
+
+/* ── Progress / task panel / status banner ───────────────────────── */
+.progress-bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
+.task-spinner {
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.task-panel { position: fixed; bottom: 16px; right: 16px; z-index: 999; max-width: 360px; min-width: 280px; }
+.task-item {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin-top: 8px;
+  box-shadow: var(--shadow-md);
+  animation: slideIn 0.3s;
+}
+.task-item .task-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.task-item .task-step { font-size: 12px; color: var(--ink-faint); margin-bottom: 6px; }
+.task-item .task-pct { font-size: 11px; color: var(--ink-faint); float: right; }
+
+.status-banner {
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeIn 0.3s;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+.status-banner.success { background: #e8f7ee; border-color: #86efac; }
+.status-banner.error { background: #fdecec; border-color: #fca5a5; }
+.status-banner .sb-spinner { width: 18px; height: 18px; border: 2px solid #d6c8fb; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
+.status-banner.success .sb-spinner, .status-banner.error .sb-spinner { display: none; }
+.status-banner .sb-icon { display: none; width: 18px; height: 18px; flex-shrink: 0; }
+.status-banner.success .sb-icon { display: block; color: var(--ok); }
+.status-banner.error .sb-icon { display: block; color: var(--danger); }
+.status-banner .sb-info { flex: 1; min-width: 0; }
+.status-banner .sb-title { font-size: 14px; font-weight: 600; }
+.status-banner .sb-detail { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.status-banner .sb-pct { font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.status-banner.success .sb-pct { color: var(--ok); }
+.status-banner.error .sb-pct { color: var(--danger); }
+.status-banner .sb-progress { margin-top: 6px; }
+.status-banner .sb-close { position: absolute; right: 10px; top: 8px; background: none; border: none; cursor: pointer; color: var(--ink-faint); font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.status-banner .sb-close:hover { background: rgba(0,0,0,0.06); color: var(--ink); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Toast ───────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  top: 16px; right: 16px;
+  padding: 10px 16px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  z-index: 1000;
+  animation: slideIn 0.3s;
+  box-shadow: var(--shadow-md);
+}
+.toast-success { background: #e8f7ee; color: #15803d; border: 1px solid #86efac; }
+.toast-error { background: #fdecec; color: #b91c1c; border: 1px solid #fca5a5; }
+.toast-warn { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+
+/* ── Chunk editing ───────────────────────────────────────────────── */
+.chunk-parent { border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 8px; }
+.stale-chunks-banner { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(217, 119, 6, 0.30); background: rgba(217, 119, 6, 0.08); border-radius: var(--r-sm); color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
+.stale-chunks-banner i { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 2px; color: var(--warn); }
+.chunk-parent-title { font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--ink-soft); }
+.chunk-parent-id { margin-left: 8px; font-size: 11px; font-weight: 400; color: var(--ink-faint); font-family: var(--font-mono); }
+.chunk-content-detail { margin: 8px 0; }
+.chunk-content-detail summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.chunk-content-pre { margin: 8px 0 0; padding: 10px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 12px; line-height: 1.55; }
+.chunk-children-title { margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.chunk-child { padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--line); }
+.chunk-child:last-child { border-bottom: none; }
+.chunk-child summary { display: flex; align-items: center; gap: 8px; min-height: 26px; cursor: pointer; list-style: none; }
+.chunk-child summary::-webkit-details-marker { display: none; }
+.chunk-child input[type="checkbox"] { accent-color: var(--accent); }
+.chunk-child .chunk-index { color: var(--ink-faint); font-weight: 500; min-width: 34px; font-family: var(--font-mono); }
+.chunk-child .chunk-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+.chunk-child .chunk-size { color: var(--ink-faint); font-size: 11px; font-family: var(--font-mono); }
+
+.milvus-filter-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:8px 12px; margin-bottom:10px; }
+.milvus-filter-grid label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-soft); }
+.milvus-filter-grid input { min-width:0; }
+.milvus-content-detail { margin:6px 0 2px; }
+.milvus-content-detail summary { cursor:pointer; font-size:12px; font-weight:600; color:var(--accent); }
+.milvus-content-detail summary:hover { text-decoration:underline; }
+.milvus-content-pre { margin:6px 0 0; padding:10px; max-height:300px; overflow:auto; white-space:pre-wrap; word-break:break-word; background:var(--paper); border:1px solid var(--line); border-radius:var(--r-sm); font-family:var(--font-mono); font-size:12px; line-height:1.55; }
+.milvus-cell-preview { display:block; color:var(--ink-soft); font-size:12px; line-height:1.45; }
+.milvus-meta { display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:4px; font-family:var(--font-mono); font-size:11px; color:var(--ink-faint); }
+.milvus-id-cell { font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); word-break:break-all; }
+.milvus-stats-note { font-size:11px; color:var(--ink-faint); line-height:1.4; margin-top:4px; }
+/* ── Markdown preview ────────────────────────────────────────────── */
+.markdown-preview {
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  max-height: 460px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.markdown-preview h2 { font-size: 18px; margin: 16px 0 8px; }
+.markdown-preview h3 { font-size: 15px; margin: 12px 0 6px; }
+.markdown-preview table { margin: 8px 0; }
+.markdown-preview th, .markdown-preview td { padding: 6px 10px; }
+.markdown-preview img { max-width: 100%; }
+
+/* ── Table (Milvus / general) ────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-weight: 600; color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+tr:hover { background: var(--paper); }
+td .badge { vertical-align: middle; }
+input[type="checkbox"] { accent-color: var(--accent); }
+
+/* ── Stats cards (Milvus page) ───────────────────────────────────── */
+.stats-row { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.stat-card { flex: 1; min-width: 180px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; box-shadow: var(--shadow-sm); }
+.stat-value { font-size: 24px; font-weight: 700; font-family: var(--font-display); letter-spacing: -0.02em; }
+.stat-label { font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--ink-faint); }
+.empty-state .icon { width: 44px; height: 44px; margin: 0 auto 12px; color: var(--ink-faint); }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-soft); }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar__brand">
+        <span class="sidebar__mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        </span>
+        <span>文档平台</span>
+      </div>
+      <nav class="sidebar__nav">
+        <a class="sidebar__nav-item sidebar__nav-item--active" data-page="pipeline" href="#">
+          <svg class="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          文档处理
+        </a>
+        <a class="sidebar__nav-item" data-page="milvus" href="#">
+          <svg class="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          向量库
+        </a>
+        <a class="sidebar__nav-item" href="/wiki">
+          <svg class="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Wiki ↗
+        </a>
+      </nav>
+    </div>
+    <div class="sidebar__bottom">
+      <div class="sidebar__label">API Key</div>
+      <input class="key-input" type="password" id="apiKeyInput" placeholder="粘贴 X-API-Key"
+        title="后端设置了 API_KEY 时，需在此粘贴相同的 Key 才能执行上传/删除/入库等操作（保存在本地浏览器）。">
+      <div class="sidebar__status" id="apiKeyStatus"></div>
+    </div>
+  </aside>
+  <main class="app-main" id="app"></main>
+</div>
+<div id="toasts"></div>
+<div class="task-panel" id="taskPanel"></div>
+<div id="statusBanner" style="position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;max-width:600px;width:calc(100% - 60px);display:none;"></div>
+<script>
+// Abortable fetch with timeout: prevents UI freeze when backend is slow
+function _fetchWithTimeout(url, opts = {}, timeoutMs = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const merged = { ...opts, signal: ctrl.signal };
+  return fetch(url, merged).finally(() => clearTimeout(timer));
+}
+
+// HTML-escape user-controlled strings before inserting via innerHTML.
+// Prevents filename / content / error XSS via the many template concatenations.
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Attach X-API-Key to every request when the user has entered one. Mutating
+// endpoints (upload/delete/ingest/…) 401 without it once API_KEY is set.
+function _apiKeyHeader() {
+  const key = localStorage.getItem("pipeline_api_key");
+  return key ? { "X-API-Key": key } : {};
+}
+
+// Turn a non-OK response into a readable error. 401 almost always means the
+// API key is missing/wrong — say so in Chinese instead of dumping raw JSON.
+async function _apiError(r) {
+  if (r.status === 401) {
+    return new Error("未授权 (401)：请在左侧边栏填写正确的 API Key 后重试（与 .env 的 API_KEY 一致）");
+  }
+  // Prefer the backend's `detail` message (e.g. "该文件正在转换中…") over the
+  // raw {"detail": ...} JSON so error toasts read like Chinese sentences.
+  let msg = "";
+  try {
+    const ct = r.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const j = await r.json();
+      msg = (j && j.detail) ? String(j.detail) : (typeof j === "string" ? j : "");
+    } else {
+      msg = await r.text();
+    }
+  } catch(e) { try { msg = await r.text(); } catch(e2) {} }
+  return new Error(msg || ("HTTP " + r.status));
+}
+
+async function _apiFetch(url, opts) {
+  // Mutations (upload/delete/ingest) can outlive the 8s GET budget — a slow
+  // delete (Milvus purge) must not be aborted as a "UI freeze" and then look
+  // like a failure. Keep the short timeout for lightweight GET polls.
+  const isMutation = opts && opts.method && opts.method !== "GET";
+  const r = await _fetchWithTimeout(url, opts, isMutation ? 30000 : 8000);
+  if (!r.ok) throw await _apiError(r);
+  return r.json();
+}
+
+const API = {
+  get(url) { return _apiFetch(url, { headers: _apiKeyHeader() }); },
+  post(url, data) {
+    const isForm = data instanceof FormData;
+    return _apiFetch(url, {
+      method: "POST",
+      headers: { ..._apiKeyHeader(), ...(isForm ? {} : { "Content-Type": "application/json" }) },
+      body: isForm ? data : JSON.stringify(data),
+    });
+  },
+  put(url, data) { return _apiFetch(url, { method: "PUT", headers: { ..._apiKeyHeader(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); },
+  patch(url, data) { return _apiFetch(url, { method: "PATCH", headers: { ..._apiKeyHeader(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); },
+  del(url) { return _apiFetch(url, { method: "DELETE", headers: _apiKeyHeader() }); },
+};
+
+let state = {
+  activePage: "pipeline",          // "pipeline" | "milvus"
+  files: [],
+  selectedFileId: null,
+  fileListMode: localStorage.getItem("pipeline_file_scope") || "kb",
+  taskPollers: {},
+  runningTasks: {},
+  _loadingFiles: false,
+  chunkParams: null,
+  filesTotal: 0,
+};
+
+// Sidebar is a recent-work set, not a full document browser.
+const FILE_LIST_LIMIT = 20;
+
+// Tenant/kb are chosen before upload and reused for scoped list/recall views.
+function currentTenantScope() {
+  const tenant = document.getElementById("tenantId")?.value?.trim()
+    || localStorage.getItem("pipeline_tenant_id") || "default";
+  const kb = document.getElementById("kbId")?.value?.trim()
+    || localStorage.getItem("pipeline_kb_id") || "default";
+  return { tenant_id: tenant, kb_id: kb };
+}
+
+function persistTenantScope() {
+  const scope = currentTenantScope();
+  localStorage.setItem("pipeline_tenant_id", scope.tenant_id);
+  localStorage.setItem("pipeline_kb_id", scope.kb_id);
+}
+
+function setupTenantScopeInputs() {
+  ["tenantId", "kbId"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", () => {
+      persistTenantScope();
+      state.selectedFileId = null;
+      loadFiles().then(() => {
+        refreshFileList();
+        renderWorkflow();
+      });
+    });
+  });
+}
+
+function tenantScopeQuery() {
+  const scope = currentTenantScope();
+  return "tenant_id=" + encodeURIComponent(scope.tenant_id)
+    + "&kb_id=" + encodeURIComponent(scope.kb_id);
+}
+
+function fileListScopeQuery() {
+  if (state.fileListMode === "all") return "tenant_id=&kb_id=";
+  if (state.fileListMode === "tenant") return "tenant_id=" + encodeURIComponent(currentTenantScope().tenant_id) + "&kb_id=";
+  return tenantScopeQuery();
+}
+
+function getFileSearchFilters() {
+  return {
+    q: document.getElementById("fileSearchQ")?.value.trim() || "",
+    tenant_id: document.getElementById("fileSearchTenant")?.value.trim() || "",
+    kb_id: document.getElementById("fileSearchKb")?.value.trim() || "",
+  };
+}
+
+function fileListQuery() {
+  const params = new URLSearchParams(fileListScopeQuery());
+  const filters = getFileSearchFilters();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.tenant_id) params.set("tenant_id", filters.tenant_id);
+  if (filters.kb_id) params.set("kb_id", filters.kb_id);
+  return params.toString();
+}
+
+let _fileSearchTimer = null;
+function scheduleFileSearch() {
+  clearTimeout(_fileSearchTimer);
+  _fileSearchTimer = setTimeout(applyFileSearch, 250);
+}
+
+async function applyFileSearch() {
+  clearTimeout(_fileSearchTimer);
+  const previousId = state.selectedFileId;
+  await loadFiles();
+  if (previousId && !state.files.some(f => f.id === previousId)) state.selectedFileId = null;
+  refreshAllFileLists();
+}
+
+function clearFileSearch() {
+  ["fileSearchQ", "fileSearchTenant", "fileSearchKb"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = "";
+  });
+  applyFileSearch();
+}
+
+function setupFileSearch() {
+  ["fileSearchQ", "fileSearchTenant", "fileSearchKb"].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener("input", scheduleFileSearch);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") applyFileSearch();
+    });
+  });
+  document.getElementById("fileSearchClear")?.addEventListener("click", clearFileSearch);
+}
+
+function onFileScopeModeChange() {
+  const mode = document.getElementById("fileScopeMode")?.value || "kb";
+  state.fileListMode = mode;
+  localStorage.setItem("pipeline_file_scope", mode);
+  ["fileSearchTenant", "fileSearchKb"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = "";
+  });
+  state.selectedFileId = null;
+  loadFiles().then(() => {
+    refreshFileList();
+    renderWorkflow();
+  });
+}
+
+// Upload size caps, refreshed from /api/config at startup.
+let uploadCaps = { max_file_size_mb: 50, max_image_size_mb: 10 };
+
+function setStatus(title, detail, pct, stateType) {
+  const el = document.getElementById("statusBanner");
+  if (!el) return;
+  if (!title) { el.style.display = "none"; el.innerHTML = ""; return; }
+  el.style.display = "";
+  const ok = stateType === "SUCCESS";
+  const err = stateType === "FAILURE";
+  var cls = "status-banner";
+  if (ok) cls += " success";
+  if (err) cls += " error";
+  var spinner = ok ? "" : err ? "" : '<div class="sb-spinner"></div>';
+  var iconHtml = ok ? '<svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' :
+                err ? '<svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' : "";
+  var pctHtml = pct != null ? '<div class="sb-pct">' + (ok ? "✓ 完成" : err ? "✗ 失败" : pct + "%") + '</div>' : (ok ? '<div class="sb-pct">✓ 完成</div>' : err ? '<div class="sb-pct">✗ 失败</div>' : '<div class="sb-pct"></div>');
+  var progressHtml = (pct != null && !ok && !err) ? '<div class="sb-progress"><div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>' : (ok ? '<div class="sb-progress"><div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div></div>' : err ? '<div class="sb-progress"><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--danger);"></div></div></div>' : "");
+  el.innerHTML = '<div class="' + cls + '">' + spinner + iconHtml + '<div class="sb-info"><div class="sb-title">' + esc(title) + '</div><div class="sb-detail">' + esc(detail || "") + '</div>' + progressHtml + '</div>' + pctHtml + '<button class="sb-close" onclick="setStatus(null)" title="关闭">×</button></div>';
+}
+
+function toast(msg, type="success") {
+  const el = document.createElement("div");
+  el.className = "toast toast-" + type;
+  el.textContent = msg;
+  document.getElementById("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function ingestDedupWarning(result) {
+  if (!result) return "";
+  const ing = result.ingestion || result;
+  const skipped = Number(ing.dedup_skipped || 0);
+  if (!skipped) return "";
+  const inserted = Number(ing.inserted || 0);
+  return "本次入库有 " + skipped + " 个子块与已入库版本内容相同，被去重跳过；实际写入 " + inserted + " 个新向量。若你刚修改过文档内容但查询结果未更新，请确认正文确有变化后重新转换入库。";
+}
+
+function icon(name, size=16) {
+  return "<i data-lucide=\""+name+"\" style=\"width:"+size+"px;height:"+size+"px\"></i>";
+}
+
+function badge(status) {
+  const map = { uploaded: "info", uploaded_text: "info", converting: "warn", converted: "success", cleaning: "warn", cleaned: "success", chunking: "warn", chunked: "info", ingesting: "warn", done: "success", failed: "danger" };
+  const labels = { uploaded: "已上传", converting: "转换中", converted: "已转换", cleaning: "清洗中", cleaned: "已清洗", chunking: "切片中", chunked: "已切片", ingesting: "入库中", done: "已入库", failed: "失败" };
+  const t = map[status] || "info";
+  return "<span class=\"badge badge-"+t+"\">"+(labels[status] || status)+"</span>";
+}
+
+function badgeText(status) {
+  const labels = { uploaded: "已上传", converting: "转换中", converted: "已转换", cleaning: "清洗中", cleaned: "已清洗", chunking: "切片中", chunked: "已切片", ingesting: "入库中", done: "已入库", failed: "失败" };
+  return labels[status] || status;
+}
+
+// Render markdown safely: marked output is passed through DOMPurify so
+// malicious <script>/<img onerror> inside document content cannot execute.
+function renderMarkdown(md) {
+  if (!window.marked) return esc(md);
+  let html = marked.parse(md || "");
+  if (window.DOMPurify) html = DOMPurify.sanitize(html);
+  return html;
+}
+
+// ── Task polling: exponential backoff + cross-tab dedup ──────────
+// Multiple tabs may be open on the same page. Only ONE tab polls each task;
+// the others share its results over a BroadcastChannel, so N tabs cost ~1
+// poll cycle instead of N. The interval grows with task age (1.5s → 5s → 10s)
+// so a long conversion doesn't hammer the API. Falls back to per-tab polling
+// when BroadcastChannel is unavailable.
+
+const _TASK_CHANNEL = "pipeline-task-poll";
+const _TASK_LEADER_TIMEOUT = 15000;   // ms; must exceed the longest poll interval
+let _taskChannel = null;
+let _myLeaderId = {};                 // per-tab stable leader claim id per task
+
+function _getTaskChannel() {
+  if ("BroadcastChannel" in window && !_taskChannel) {
+    try { _taskChannel = new BroadcastChannel(_TASK_CHANNEL); }
+    catch(e) { _taskChannel = null; }
+  }
+  return _taskChannel;
+}
+
+function _leaderKey(taskId) { return "pipeline_task_leader_" + taskId; }
+
+// Decide whether THIS tab is the polling leader for a task. The leader keeps a
+// fresh localStorage heartbeat; followers only read it. When the leader dies
+// (tab closed / crashed), its heartbeat ages out and a follower reclaims —
+// converging even if two tabs claim at once (last write wins, re-read picks the
+// winner).
+function _checkTaskLeadership(taskId) {
+  const ch = _getTaskChannel();
+  if (!ch) return { amLeader: true, leaderId: null };
+  const key = _leaderKey(taskId);
+  if (!_myLeaderId[taskId]) _myLeaderId[taskId] = taskId + ":" + Math.random().toString(36).slice(2);
+  const myId = _myLeaderId[taskId];
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const [id, ts] = raw.split("|");   // claimId|timestamp (claimId itself holds ':')
+      if (id === myId) {
+        localStorage.setItem(key, myId + "|" + Date.now());   // refresh heartbeat
+        return { amLeader: true, leaderId: myId };
+      }
+      if (Date.now() - Number(ts) < _TASK_LEADER_TIMEOUT) {
+        return { amLeader: false, leaderId: id };
+      }
+    }
+    localStorage.setItem(key, myId + "|" + Date.now());
+    const claimed = localStorage.getItem(key) || "";
+    return { amLeader: claimed.startsWith(myId), leaderId: claimed.split("|")[0] };
+  } catch(e) {
+    return { amLeader: true, leaderId: null };
+  }
+}
+
+async function pollTask(taskId, onUpdate, label, fileId) {
+  if (state.taskPollers[taskId]) { clearTimeout(state.taskPollers[taskId]); delete state.taskPollers[taskId]; }
+  const startTime = Date.now();
+  state.runningTasks[taskId] = { label: label || "处理中", step: "", pct: 0 };
+  renderTaskPanel();
+  setStatus(label || "处理中", "正在准备...", 0);
+
+  // 模拟渐进进度：每 400ms 递增，最高到 90%（纯本地，不请求服务器）
+  let simPct = 0;
+  let settled = false;
+  // 任务进行中：把后端 step 映射为文件状态，驱动列表徽章实时刷新
+  const PROGRESS_STATUS = { converting: "converting", cleaning: "cleaning", chunking: "chunking", embedding: "ingesting", deleting_old: "ingesting", processing: "ingesting", done: "done" };
+  const stepLabels = { converting: "正在转换文档...", cleaning: "正在清洗标题结构...", chunking: "正在切分文本...", embedding: "正在写入向量库...", deleting_old: "正在清理旧数据...", processing: "正在处理中...", done: "" };
+
+  const simTimer = setInterval(() => {
+    if (settled) return;
+    const elapsed = (Date.now() - startTime) / 1000;
+    simPct = _simCurve(elapsed);          // 基于时间计算模拟进度，永远不低于上次，最高90%
+    state.runningTasks[taskId].pct = simPct;
+    renderTaskPanel();
+    updateStatusBanner(taskId);
+  }, 400);
+
+  const ch = _getTaskChannel();
+  let onMessage = null;
+  let lastBroadcastAt = 0;
+
+  function cleanup() {
+    settled = true;
+    clearInterval(simTimer);
+    if (ch && onMessage) { try { ch.removeEventListener("message", onMessage); } catch(e) {} }
+    if (state.taskPollers[taskId]) { clearTimeout(state.taskPollers[taskId]); delete state.taskPollers[taskId]; }
+    delete _myLeaderId[taskId];
+    try { localStorage.removeItem(_leaderKey(taskId)); } catch(e) {}
+  }
+
+  // Apply a task-status snapshot to the local UI. Called for fetched results
+  // (the polling leader) and broadcast results (follower tabs).
+  async function applyUpdate(s) {
+    if (settled) return;
+    // 后端已把 SUCCESS-with-error 归一为 FAILURE；此处再兜底一次，防止任何
+    // 漏网路径（如旧 worker 还在跑、队列残留）让前端误报"完成"。必须放在
+    // onUpdate 之前，否则"转换完成"等回调会看到错误的 SUCCESS。
+    if (s.state === "SUCCESS" && s.result && s.result.error) {
+      s.state = "FAILURE";
+      s.error = s.result.error;
+      s.step = "failed";
+    }
+    onUpdate(s);
+    // 后端报了真实进度就衔接模拟进度
+    const serverPct = s.pct || 0;
+    if (serverPct >= 5) simPct = Math.max(simPct, serverPct);
+    const step = s.step || "";
+    const detail = stepLabels[step] || (step ? "步骤: " + step : "处理中, 请稍等...");
+    state.runningTasks[taskId] = { label: label || "处理中", step: step, pct: simPct, state: s.state };
+
+    // Live badge sync: reflect the task's current step as the file's status so
+    // lists show "转换中/切片中/入库中" while the task runs — no waiting for
+    // completion. Applies to leader polls AND follower broadcasts alike.
+    if (fileId && s.state === "PROGRESS") {
+      const st = PROGRESS_STATUS[s.step];
+      if (st) {
+        const f = state.files.find(x => x.id === fileId);
+        if (f && f.status !== st) {
+          f.status = st;
+          refreshAllFileLists();
+        }
+      }
+    }
+
+    // When the Redis-backed task state says FAILURE, cross-check the
+    // actual DB status: if the file is already "done", the ingest
+    // actually succeeded but the final state update to Redis crashed.
+    if (s.state === "FAILURE" && fileId) {
+      try {
+        const f = await API.get("/api/files/" + fileId);
+        if (f && f.status === "done") { s.state = "SUCCESS"; s.step = "done"; s.pct = 100; }
+      } catch(e) {}
+    }
+
+    if (s.state === "SUCCESS" || s.state === "FAILURE") {
+      cleanup();
+      state.runningTasks[taskId] = { label: label || "处理中", step: "done", pct: 100, state: s.state };
+      renderTaskPanel();
+      const okTitle = label === "上传文件" ? "上传完毕" : label === "转换文档" ? "转换完毕" : label === "清洗文档" ? "清洗完毕" : label === "切片文档" ? "切片完毕" : label === "入库" ? "入库完毕" : label === "全流程处理" ? "全流程处理完毕" : label + " 完成";
+      const failTitle = label + " 失败";
+      setStatus(s.state === "SUCCESS" ? okTitle : failTitle, s.state === "SUCCESS" ? ingestDedupWarning(s.result) : (s.error || "未知错误"), 100, s.state);
+      setTimeout(() => { delete state.runningTasks[taskId]; renderTaskPanel(); setStatus(null); }, s.state === "SUCCESS" ? 3000 : 8000);
+      // Refresh every visible list so badges/buttons update in place on
+      // whichever page the user is on — no page refresh or tab-switch needed.
+      refreshAllViews();
+      // 入库/全流程完成后刷新 Milvus 统计
+      _fetchAndRefreshStats();
+    } else {
+      renderTaskPanel();
+      setStatus(label || "处理中", detail, simPct, "PROGRESS");
+    }
+  }
+
+  if (ch) {
+    onMessage = (e) => {
+      const d = e.data;
+      if (d && d.taskId === taskId && d.s) {
+        lastBroadcastAt = Date.now();
+        applyUpdate(d.s);
+      }
+    };
+    ch.addEventListener("message", onMessage);
+  }
+
+  // Poll interval grows with task age: fast at first so early states feel
+  // responsive, then progressively sparser so long tasks don't hammer the API.
+  const pollDelay = () => {
+    const elapsed = (Date.now() - startTime) / 1000;
+    if (elapsed < 10) return 1500;   // first 10s: every 1.5s
+    if (elapsed < 60) return 5000;   // 10s–1min: every 5s
+    return 10000;                    // after 1min: every 10s
+  };
+
+  const pollOnce = async () => {
+    if (settled) return;
+    const lead = _checkTaskLeadership(taskId);
+    // Only the polling leader fetches; followers normally rely on the
+    // broadcast. A follower that gets no broadcast for 20s (channel hiccup)
+    // falls back to fetching directly so its UI never stalls on sim progress.
+    if (lead.amLeader || (Date.now() - lastBroadcastAt) > 20000) {
+      try {
+        const s = await API.get("/api/tasks/" + taskId);
+        lastBroadcastAt = Date.now();
+        if (ch) ch.postMessage({ taskId, s });
+        await applyUpdate(s);
+      } catch(e) {}
+    }
+    if (settled) return;
+    state.taskPollers[taskId] = setTimeout(pollOnce, pollDelay());
+  };
+
+  state.taskPollers[taskId] = setTimeout(pollOnce, pollDelay());
+}
+
+// 基于已过秒数计算模拟进度：0-3秒快速爬到30%，3-6秒到65%，6-12秒到80%，之后缓慢逼近90%
+function _simCurve(elapsed) {
+  // 使用对数曲线形状，让前期快后期慢，看起来自然
+  // y = 90 * (1 - e^(-t/τ))，其中 τ=4 秒作为时间常数
+  // 加上随机噪声让曲线有波动感
+  const target = 90 * (1 - Math.exp(-elapsed / 4));
+  // 加一个微小随机噪声 (±2%)
+  const noise = (Math.random() - 0.5) * 4;
+  return Math.round(Math.max(0, Math.min(90, target + noise)));
+}
+
+function updateStatusBanner(taskId) {
+  const t = state.runningTasks[taskId];
+  if (!t) return;
+  const stepLabels = { converting: "正在转换文档...", cleaning: "正在清洗标题结构...", chunking: "正在切分文本...", embedding: "正在写入向量库...", deleting_old: "正在清理旧数据...", processing: "正在处理中...", done: "" };
+  const detail = stepLabels[t.step] || (t.step ? "步骤: " + t.step : "处理中, 请稍等...");
+  setStatus(t.label || "处理中", detail, t.pct || 0, t.state === "PROGRESS" ? "PROGRESS" : t.state);
+}
+
+function renderTaskPanel() {
+  const el = document.getElementById("taskPanel");
+  if (!el) return;
+  const tasks = Object.entries(state.runningTasks);
+  if (!tasks.length) { el.innerHTML = ""; return; }
+  const stepLabels = { uploading: "上传中", converting: "转换中", cleaning: "清洗中", chunking: "切片中", embedding: "入库中", deleting_old: "清理旧数据", processing: "处理中", done: "完成" };
+  el.innerHTML = tasks.map(([tid, t]) => {
+    const stepText = stepLabels[t.step] || (t.step || "处理中");
+    const pctText = t.pct != null ? t.pct + "%" : "";
+    const done = t.state === "SUCCESS";
+    const failed = t.state === "FAILURE";
+    return '<div class="task-item" style="'+(done?"border-color:#86efac;":"")+(failed?"border-color:#fca5a5;":"")+'">\
+      <div class="task-title">'+(done?icon("check-circle",14)+" ":failed?icon("x-circle",14)+" ":"<span class=\"task-spinner\"></span> ")+t.label+'\
+        <span class="task-pct">'+(done?"✓ 完成":failed?"✗ 失败":pctText)+'</span></div>\
+      <div class="task-step">'+stepText+'</div>\
+      <div class="progress-bar"><div class="progress-fill" style="width:'+(done?100:failed?100:t.pct||0)+'%"></div></div>\
+    </div>';
+  }).join("");
+}
+
+let _loadFilesPromise = null;
+async function loadFiles() {
+  // Skip duplicate concurrent calls — if one is in-flight, reuse its promise
+  if (_loadFilesPromise) return _loadFilesPromise;
+  _loadFilesPromise = (async () => {
+    try {
+      const r = await API.get("/api/files?" + fileListQuery() + "&page=1&limit=" + FILE_LIST_LIMIT);
+      state.files = r.files;
+      state.filesTotal = r.total || r.files.length;
+    } catch(e) { /* keep last known files on error */ }
+    finally { _loadFilesPromise = null; }
+  })();
+  return _loadFilesPromise;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + " KB";
+  return (bytes/1048576).toFixed(1) + " MB";
+}
+
+function isOversized(file) {
+  const ext = (file.name.match(/\.\w+$/) || [""])[0].toLowerCase();
+  const isImg = [".jpg",".jpeg",".png",".webp",".bmp"].indexOf(ext) >= 0;
+  const capMb = isImg ? uploadCaps.max_image_size_mb : uploadCaps.max_file_size_mb;
+  return file.size > capMb * 1024 * 1024;
+}
+
+// Read the chunk-stage slider values when present, else fall back to the last
+// values used for chunking, else defaults. Used by the one-click pipeline so
+// it honors the user's slider settings instead of hardcoded values.
+function getChunkParams() {
+  const ids = { chunk_size: "chunkSizeVal", overlap: "chunkOverlapVal", max_parent_size: "maxParentSizeVal", parent_lookback_tokens: "parentLookbackVal", child_lookback_tokens: "childLookbackVal" };
+  const vals = {};
+  Object.keys(ids).forEach(k => {
+    const el = document.getElementById(ids[k]);
+    if (el && el.value !== undefined && el.value !== "") vals[k] = +el.value;
+  });
+  return Object.assign({ chunk_size: 300, overlap: 40, max_parent_size: 2000, parent_lookback_tokens: 80, child_lookback_tokens: 55 }, state.chunkParams || {}, vals);
+}
+
+function fileTypeIcon(type, ext) {
+  if (type === "image") return icon("image");
+  const map = { ".pdf": "file-text", ".docx": "file-text", ".pptx": "presentation", ".html": "globe", ".md": "file-code", ".txt": "file" };
+  return icon(map[ext] || "file");
+}
+
+async function refreshIcons() {
+  if (window.lucide) lucide.createIcons();
+}
+
+function syncRangeNum(rangeId, numId) {
+  const r = document.getElementById(rangeId);
+  const n = document.getElementById(numId);
+  if (r && n) n.value = r.value;
+}
+function syncNumRange(numId, rangeId) {
+  const n = document.getElementById(numId);
+  const r = document.getElementById(rangeId);
+  if (r && n) r.value = n.value;
+}
+
+// ── Page routing (sidebar) ─────────────────────────────────────────
+function render() {
+  const app = document.getElementById("app");
+  // highlight the active sidebar item
+  document.querySelectorAll(".sidebar__nav-item[data-page]").forEach(el => {
+    el.classList.toggle("sidebar__nav-item--active", el.dataset.page === state.activePage);
+  });
+  if (state.activePage === "milvus") renderMilvusPage(app);
+  else renderPipeline(app);
+  setTimeout(refreshIcons, 50);
+}
+
+// ── 文档处理：左列表 + 右工作流（转换/切片/入库一页看完）────────────
+function renderPipeline(app) {
+  // selection must point at an existing file
+  if (!state.files.some(f => f.id === state.selectedFileId)) state.selectedFileId = null;
+  const files = state.files;
+
+  app.innerHTML = '\
+    <header class="page-header">\
+      <div>\
+        <h1 class="page-header__title">文档处理</h1>\
+      </div>\
+      <div id="globalMilvusStats" class="header-stats" style="display:none;"></div>\
+    </header>\
+    <section class="card upload-card">\
+      <details class="upload-collapse" open>\
+        <summary class="card-header upload-collapse__summary">上传文档 <span class="muted">拖拽或点击选择文件</span></summary>\
+        <div class="dropzone" id="dropzone">\
+          <div class="icon">'+icon("upload-cloud",36)+'</div>\
+          <p>拖拽文件到此处，或点击选择文件</p>\
+          <p class="dropzone__hint">PDF / Word / PPT / Markdown / 图片 (JPG/PNG/WebP/BMP)</p>\
+          <input type="file" id="fileInput" multiple style="display:none" accept=".pdf,.docx,.pptx,.html,.md,.txt,.jpg,.jpeg,.png,.webp,.bmp">\
+        </div>\
+        <div class="form-row">\
+          <label>租户编号:</label>\
+          <input type="text" id="tenantId" value="'+esc(currentTenantScope().tenant_id)+'" style="width:120px;">\
+          <label>知识库编号:</label>\
+          <input type="text" id="kbId" value="'+esc(currentTenantScope().kb_id)+'" style="width:120px;">\
+          <label>业务分类:</label>\
+          <input type="text" id="mushroomType" placeholder="如: 松茸精华饮" style="width:120px;">\
+          <label>产品编号:</label>\
+          <input type="text" id="productId" placeholder="产品编号" style="width:100px;">\
+          <button class="btn btn-primary" id="uploadBtn" disabled>开始上传</button>\
+        </div>\
+        <div id="uploadProgress"></div>\
+        <div class="form-row full-pipeline-row">\
+          <label>一键全流程:</label>\
+          <select id="fullPipelineSelect" style="flex:1;max-width:320px;" onchange="onFullPipelineChange()">\
+            <option value="">-- 选择文件 --</option>\
+            '+files.map(f => "<option value=\""+esc(f.id)+"\">"+esc(f.name)+" ("+(f.type==="text"?"文本":esc(f.type))+" · "+badgeText(f.status)+")</option>").join("")+'\
+          </select>\
+          <button class="btn btn-primary" id="fullPipelineBtn" onclick="runFullPipeline()" disabled>转换 → 清洗 → 切片 → 入库</button>\
+        </div>\
+      </details>\
+    </section>\
+        <div class="pipeline-grid">\
+      <aside class="file-panel">\
+        <div class="panel-head">\
+          <div class="panel-head__titles">\
+            <span>文件列表</span>\
+            <span class="panel-head__scope" id="fileScope"></span>\
+          </div>\
+          <div class="panel-head__controls">\
+            <select class="panel-head__scope-select" id="fileScopeMode" onchange="onFileScopeModeChange()" title="选择文件列表范围">\
+              <option value="kb">当前知识库</option>\
+              <option value="tenant">当前租户</option>\
+              <option value="all">全部文档</option>\
+            </select>\
+            <span class="panel-head__count" id="fileCount"></span>\
+          </div>\
+        </div>\
+        <div class="file-search">\
+          <div class="file-search__row">\
+            <input type="text" id="fileSearchQ" placeholder="搜索文件名" autocomplete="off">\
+            <button class="btn btn-sm file-search__clear" id="fileSearchClear" title="清除搜索">'+icon("x",14)+'</button>\
+          </div>\
+          <div class="file-search__ids">\
+            <input type="text" id="fileSearchTenant" placeholder="tenant_id" autocomplete="off">\
+            <input type="text" id="fileSearchKb" placeholder="kb_id" autocomplete="off">\
+          </div>\
+        </div>\
+        <div id="fileList" class="file-list"></div>\
+      </aside>\
+      <section class="workflow-panel" id="workflowPanel"></section>\
+    </div>\
+  ';
+
+  refreshFileList();
+  renderWorkflow();
+  setupDropzone();
+  setupTenantScopeInputs();
+  setupFileSearch();
+}
+
+// 左栏文件列表：状态徽章 + 转换/清洗/切片/入库四段进度点，点击选中
+function refreshFileList() {
+  const el = document.getElementById("fileList");
+  if (!el) return;
+  const fc = document.getElementById("fileCount");
+  const scopeEl = document.getElementById("fileScope");
+  const modeSelect = document.getElementById("fileScopeMode");
+  if (!["kb", "tenant", "all"].includes(state.fileListMode)) state.fileListMode = "kb";
+  if (modeSelect) modeSelect.value = state.fileListMode;
+  if (scopeEl) {
+    const search = getFileSearchFilters();
+    if (search.tenant_id || search.kb_id) {
+      scopeEl.textContent = (search.tenant_id || "全部租户") + " / " + (search.kb_id || "全部知识库");
+      scopeEl.title = "自定义搜索范围";
+    } else {
+      const scope = currentTenantScope();
+      const labels = {
+        kb: scope.tenant_id + " / " + scope.kb_id,
+        tenant: scope.tenant_id + " / 全部知识库",
+        all: "全部文档"
+      };
+      scopeEl.textContent = labels[state.fileListMode];
+      scopeEl.title = "当前文件列表范围";
+    }
+  }
+  if (fc) {
+    const shown = state.files.length;
+    const total = state.filesTotal || shown;
+    fc.textContent = shown ? (total > shown ? "· 最新 " + shown + " / " + total + " 个" : "· " + shown + " 个") : "";
+    fc.title = total > shown ? "列表默认展示最新 " + FILE_LIST_LIMIT + " 个文档" : "";
+  }
+  if (!state.files.length) { el.innerHTML = "<div class=\"empty-state\"><div class=\"icon\">"+icon("file",40)+"</div><p>暂无文件</p></div>"; return; }
+  el.innerHTML = state.files.map(f => "\
+    <div class=\"file-list-item"+(f.id===state.selectedFileId?" file-list-item--active":"")+"\" onclick=\"selectFile('"+esc(f.id)+"')\">\
+      <span class=\"file-icon\">"+fileTypeIcon(f.type,f.extension)+"</span>\
+      <div class=\"file-list-item__body\">\
+        <div class=\"file-list-item__name\">"+esc(f.name)+"</div>\
+        <div class=\"file-list-item__meta\">"+formatSize(f.size)+" · "+esc(f.extension||f.type)+
+          (state.fileListMode==="kb" ? "" : " · "+esc(f.tenant_id)+" / "+esc(f.kb_id))+
+        "</div>\
+      </div>\
+      <div class=\"file-list-item__side\">"+stageDots(f)+badge(f.status)+"</div>\
+      <button class=\"btn btn-sm btn-ghost file-list-item__del\" onclick=\"event.stopPropagation();deleteFile('"+esc(f.id)+"')\" title=\"删除\">"+icon("trash-2",13)+"</button>\
+    </div>\
+  ").join("");
+  setTimeout(refreshIcons, 50);
+}
+
+// 四段进度点：转换 / 清洗 / 切片 / 入库
+function stageDots(f) {
+  const st = f.status;
+  if (f.type === "image") {
+    return '<span class="stage-dots" title="图片: 直接入库">'+dotHtml("入库", st==="done", st==="ingesting", st==="failed")+'</span>';
+  }
+  return '<span class="stage-dots">'+
+    dotHtml("转换", ["converted","cleaning","cleaned","chunking","chunked","ingesting","done"].includes(st), st==="converting", st==="failed")+
+    dotHtml("清洗", ["cleaned","chunking","chunked","ingesting","done"].includes(st), st==="cleaning", st==="failed")+
+    dotHtml("切片", ["chunked","ingesting","done"].includes(st), st==="chunking", st==="failed")+
+    dotHtml("入库", st==="done", st==="ingesting", st==="failed")+
+  '</span>';
+}
+function dotHtml(label, done, running, failed) {
+  const cls = done ? "is-done" : running ? "is-running" : failed ? "is-failed" : "";
+  return '<span class="stage-dot '+cls+'" title="'+label+'"></span>';
+}
+function chip(kind, label) {
+  const cls = kind==="success"?"badge-success":kind==="warn"?"badge-warn":kind==="danger"?"badge-danger":"badge-muted";
+  return '<span class="badge '+cls+'">'+label+'</span>';
+}
+// 每阶段各自的状态（未转换/转换中/已转换…）
+function stageChip(stage, f) {
+  const st = f.status;
+  const hasChunks = f.chunk_count > 0;
+  const cleanState = f.clean_state || "raw";
+  if (stage === 1) {
+    if (st === "converting") return chip("warn","转换中");
+    if (["converted","cleaning","cleaned","chunking","chunked","ingesting","done"].includes(st)) return chip("success","已转换");
+    if (st === "failed" && !hasChunks) return chip("danger","失败");
+    if (st === "failed" && hasChunks) return chip("success","已转换");
+    return chip("muted","未转换");
+  }
+  if (stage === 2) {
+    if (st === "cleaning") return chip("warn","清洗中");
+    if (cleanState === "cleaned") return chip("success","已清洗");
+    if (cleanState === "edited") return chip("warn","已编辑");
+    return chip("muted","未清洗");
+  }
+  if (stage === 3) {
+    if (st === "chunking") return chip("warn","切片中");
+    if (st === "converted" && hasChunks) return chip("warn","旧切片");
+    if (["cleaned","chunking","chunked","ingesting","done"].includes(st)) return chip("success","已切片");
+    if (st === "failed" && hasChunks) return chip("success","已切片");
+    if (st === "failed" && !hasChunks) return chip("danger","失败");
+    return chip("muted","未切片");
+  }
+  if (st === "ingesting") return chip("warn","入库中");
+  if (st === "done") return chip("success","已入库");
+  if (st === "failed") return chip("danger","失败");
+  return chip("muted","未入库");
+}
+
+function isText(f) { return f && f.type === "text"; }
+function isImage(f) { return f && f.type === "image"; }
+function isConverted(f) {
+  return f && ["converted","cleaning","cleaned","chunking","chunked","ingesting","done"].includes(f.status);
+}
+function canChunk(f) {
+  if (!isText(f)) return false;
+  if (["converted","cleaned","chunking","chunked","ingesting","done"].includes(f.status)) return true;
+  // Ingest failure: chunks already exist; allow preview / edit / retry.
+  return f.status === "failed" && (f.chunk_count || 0) > 0;
+}
+
+function selectFile(id) {
+  state.selectedFileId = id;
+  refreshFileList();
+  renderWorkflow();
+}
+
+// 右栏工作流：选中文件的 ①转换 ②切片 ③入库 三段卡片
+function renderWorkflow() {
+  const panel = document.getElementById("workflowPanel");
+  if (!panel) return;
+  const f = state.files.find(x => x.id === state.selectedFileId);
+  if (!f) {
+    panel.innerHTML = '\
+      <div class="card workflow-empty">\
+        <div class="empty-state">\
+          <div class="icon">'+icon("workflow",40)+'</div>\
+          <p>从左侧选择一个文件，即可在右侧查看它的<br>转换 / 清洗 / 切片 / 入库 全流程状态</p>\
+        </div>\
+      </div>\
+    ';
+    return;
+  }
+  panel.innerHTML =
+    '<div class="workflow-head">' +
+      '<span class="file-icon">'+fileTypeIcon(f.type,f.extension)+'</span>' +
+      '<div class="workflow-head__body">' +
+        '<div class="workflow-head__title">'+esc(f.name)+'</div>' +
+        '<div class="workflow-head__meta">'+esc(f.type==="text"?"markdown":f.type)+' · '+formatSize(f.size)+' · '+badge(f.status)+'</div>' +
+      '</div>' +
+      '<button class="btn btn-sm" onclick="openMetaEdit(\''+esc(f.id)+'\')" title="编辑租户/知识库/产品信息">'+icon("settings",14)+' 信息</button>' +
+    '</div>' +
+    stageConvertCard(f) +
+    stageCleanCard(f) +
+    stageChunkCard(f) +
+    stageIngestCard(f);
+  setTimeout(refreshIcons, 50);
+  // 已转换的文本文件：自动载入切片列表
+  if (canChunk(f)) loadChunks(f.id);
+}
+
+function hintCard(id, title, iconName, text) {
+  return '<section class="card stage-card" id="'+id+'">\
+    <div class="stage-card__head">\
+      <span class="stage-num">'+title+'</span>\
+      <span class="stage-title">'+iconName+'</span>\
+    </div>\
+    <div class="stage-card__hint">'+icon("info",15)+' <span>'+text+'</span></div>\
+  </section>';
+}
+
+// ① 转换：按钮 + markdown 预览/编辑
+function stageConvertCard(f) {
+  if (isImage(f)) return hintCard("stageConvert", "01", "转换", "图片文件无需转换，可直接入库");
+  const converting = f.status === "converting";
+  const done = isConverted(f);
+  const btnLabel = converting ? "转换中..." : (done ? "重新转换" : "转换");
+  const previewBtns = (done && !converting)
+    ? '<button class="btn btn-sm" onclick="previewConverted(\''+esc(f.id)+'\', false)" title="预览转换后的 Markdown">'+icon("eye",14)+' 预览</button>' +
+      '<button class="btn btn-sm" onclick="previewConverted(\''+esc(f.id)+'\', true)" title="编辑转换后的 Markdown">'+icon("pencil",14)+' 编辑</button>'
+    : "";
+  return '\
+    <section class="card stage-card" id="stageConvert">\
+      <div class="stage-card__head">\
+        <span class="stage-num">01</span>\
+        <span class="stage-title">转换</span>\
+        '+stageChip(1,f)+'\
+        <span class="stage-card__actions">\
+          <button class="btn btn-sm btn-primary" id="convertBtn" onclick="convertFile(\''+esc(f.id)+'\')" '+(converting?"disabled":"")+'>'+btnLabel+'</button>\
+          '+previewBtns+'\
+        </span>\
+      </div>\
+      <div class="stage-convert-preview" id="convertPreviewCard" style="display:none;">\
+        <div class="stage-card__subhead">\
+          <span>转换后 Markdown</span>\
+          <span class="stage-card__actions">\
+            <button class="btn btn-sm" id="convertCancelBtn" style="display:none;" onclick="cancelConvertEdit()">取消</button>\
+            <button class="btn btn-sm btn-primary" id="convertSaveBtn" style="display:none;" onclick="saveConvertEdit()">保存</button>\
+          </span>\
+        </div>\
+        <div class="markdown-preview" id="convertMarkdownPreview"></div>\
+        <textarea id="convertMarkdownEditor" style="display:none;"></textarea>\
+      </div>\
+    </section>\
+  ';
+}
+
+// ② 清洗：标题修复 + 保留原始转换结果
+function stageCleanCard(f) {
+  if (isImage(f)) return "";
+  const cleaning = f.status === "cleaning";
+  const cleanState = f.clean_state || "raw";
+  const hasClean = !!f.has_clean;
+  let body;
+  if (cleaning) {
+    body = '<div class="stage-card__hint">'+icon("sparkles",15)+' <span>正在清洗标题结构，请稍候...</span></div>';
+  } else if (!isConverted(f)) {
+    body = '<div class="stage-card__hint">'+icon("info",15)+' <span>请先完成上方「转换」步骤，再清洗标题结构</span></div>';
+  } else {
+    const btnLabel = cleanState === "cleaned" ? "重新清洗" : "清洗";
+    const previewBtns = hasClean
+      ? '<button class="btn btn-sm" onclick="previewCleaned(\''+esc(f.id)+'\', false)" title="预览清洗后的 Markdown">'+icon("eye",14)+' 预览</button>' +
+        '<button class="btn btn-sm" onclick="previewCleaned(\''+esc(f.id)+'\', true)" title="编辑清洗后的 Markdown">'+icon("pencil",14)+' 编辑</button>'
+      : "";
+    body = '<div class="stage-card__actions">' +
+      '<button class="btn btn-primary" id="cleanBtn" onclick="cleanFile(\''+esc(f.id)+'\')">'+icon("wand-2",14)+' '+btnLabel+'</button>' +
+      previewBtns +
+      '</div>' +
+      (hasClean ? '<div id="cleanReportPanel" class="clean-report" style="display:none;"></div>' : '') +
+      (hasClean ? '\
+        <div class="stage-convert-preview" id="cleanPreviewCard" style="display:none;">\
+          <div class="stage-card__subhead">\
+            <span>清洗后 Markdown</span>\
+            <span class="stage-card__actions">\
+              <button class="btn btn-sm" id="cleanCancelBtn" style="display:none;" onclick="cancelCleanEdit()">取消</button>\
+              <button class="btn btn-sm btn-primary" id="cleanSaveBtn" style="display:none;" onclick="saveCleanEdit()">保存</button>\
+            </span>\
+          </div>\
+          <div class="markdown-preview" id="cleanMarkdownPreview"></div>\
+          <textarea id="cleanMarkdownEditor" style="display:none;"></textarea>\
+        </div>' : '');
+  }
+  return '\
+    <section class="card stage-card" id="stageClean">\
+      <div class="stage-card__head">\
+        <span class="stage-num">02</span>\
+        <span class="stage-title">清洗</span>\
+        '+stageChip(2,f)+'\
+      </div>\
+      '+body+'\
+    </section>\
+  ';
+}
+
+// ③ 切片：参数滑杆 + 切片按钮 + 块列表编辑
+function stageChunkCard(f) {
+  if (isImage(f)) return hintCard("stageChunk", "03", "切片", "图片文件无需切片，可直接入库");
+  const chunking = f.status === "chunking";
+  const converting = f.status === "converting";
+  const cleaning = f.status === "cleaning";
+  const hasOldChunks = (f.chunk_count || 0) > 0;
+  const markdownChanged = f.status === "converted" && hasOldChunks;
+  const staleBanner = markdownChanged ?
+    '<div class="stale-chunks-banner">' + icon("triangle-alert", 15) +
+    '<span><strong>Markdown 已修改。</strong>以下父块/子块为旧版本，需重新切片并入库。</span></div>' : "";
+  let body;
+  if (!canChunk(f)) {
+    body = '<div class="stage-card__hint">'+icon("info",15)+' <span>'+
+      (converting ? '文件正在转换中，转换完成后即可切片' : cleaning ? '文件正在清洗标题结构，清洗完成后即可切片' : '文件尚未转换，先完成上方「转换」步骤后再切片')+
+      '</span></div>';
+  } else {
+    body = '\
+      ' + staleBanner + '\
+      <div class="form-row">\
+        <label>chunk_size (tokens)</label>\
+        <input type="range" id="chunkSize" min="100" max="2000" value="300" oninput="syncRangeNum(\'chunkSize\',\'chunkSizeVal\')">\
+        <input type="number" id="chunkSizeVal" min="100" max="2000" value="300" style="width:70px;" oninput="syncNumRange(\'chunkSizeVal\',\'chunkSize\')">\
+      </div>\
+      <div class="form-row">\
+        <label>overlap (tokens)</label>\
+        <input type="range" id="chunkOverlap" min="0" max="200" value="40" oninput="syncRangeNum(\'chunkOverlap\',\'chunkOverlapVal\')">\
+        <input type="number" id="chunkOverlapVal" min="0" max="200" value="40" style="width:70px;" oninput="syncNumRange(\'chunkOverlapVal\',\'chunkOverlap\')">\
+      </div>\
+      <div class="form-row">\
+        <label>parent_lookback (tokens)</label>\
+        <input type="range" id="parentLookback" min="0" max="500" value="80" oninput="syncRangeNum(\'parentLookback\',\'parentLookbackVal\')">\
+        <input type="number" id="parentLookbackVal" min="0" max="500" value="80" style="width:70px;" oninput="syncNumRange(\'parentLookbackVal\',\'parentLookback\')">\
+      </div>\
+      <div class="form-row">\
+        <label>child_lookback (tokens)</label>\
+        <input type="range" id="childLookback" min="0" max="500" value="55" oninput="syncRangeNum(\'childLookback\',\'childLookbackVal\')">\
+        <input type="number" id="childLookbackVal" min="0" max="500" value="55" style="width:70px;" oninput="syncNumRange(\'childLookbackVal\',\'childLookback\')">\
+        <span class="muted">默认=overlap+15</span>\
+      </div>\
+      <div class="form-row">\
+        <label>max_parent (tokens)</label>\
+        <input type="range" id="maxParentSize" min="500" max="8000" value="2000" oninput="syncRangeNum(\'maxParentSize\',\'maxParentSizeVal\')">\
+        <input type="number" id="maxParentSizeVal" min="500" max="8000" value="2000" style="width:70px;" oninput="syncNumRange(\'maxParentSizeVal\',\'maxParentSize\')">\
+      </div>\
+      <div class="stage-card__actions">\
+        <button class="btn btn-primary" id="chunkBtn" onclick="doChunk()" '+(chunking?"disabled":"")+'>'+(chunking?"切片中...":"切片")+'</button>\
+        <span class="muted">切片后可在下方勾选子块进行删除 / 合并</span>\
+      </div>\
+    ';
+  }
+  return '\
+    <section class="card stage-card" id="stageChunk">\
+      <div class="stage-card__head">\
+        <span class="stage-num">03</span>\
+        <span class="stage-title">切片</span>\
+        '+stageChip(2,f)+'\
+      </div>\
+      '+body+'\
+      <div id="chunkResult"></div>\
+    </section>\
+  ';
+}
+
+// ③ 入库：按钮 + 状态
+function stageIngestCard(f) {
+  const ingesting = f.status === "ingesting";
+  const done = f.status === "done";
+  const canIngest = isImage(f) || canChunk(f)
+    || (f.status === "failed" && !isImage(f) && f.chunk_count > 0);
+  let action;
+  if (ingesting) action = '<span class="badge badge-warn"><span class="task-spinner"></span> 入库中</span>';
+  else if (done) action = '<button class="btn btn-sm" onclick="ingestFile(\''+esc(f.id)+'\',\''+esc(f.type)+'\')">重新入库</button>';
+  else if (f.status === "failed" && canIngest) action = '<button class="btn btn-sm btn-primary" onclick="ingestFile(\''+esc(f.id)+'\',\''+esc(f.type)+'\')">重试入库</button>';
+  else if (canIngest) action = '<button class="btn btn-sm btn-primary" onclick="ingestFile(\''+esc(f.id)+'\',\''+esc(f.type)+'\')">入库</button>';
+  else action = '<span class="muted">请先完成转换后再入库</span>';
+  const chunkCount = isImage(f) ? "-" : (f.chunk_count != null ? f.chunk_count : "-");
+  return '\
+    <section class="card stage-card" id="stageIngest">\
+      <div class="stage-card__head">\
+        <span class="stage-num">04</span>\
+        <span class="stage-title">入库</span>\
+        '+stageChip(3,f)+'\
+      </div>\
+      <div class="form-row">\
+        <span class="muted">切片数: '+esc(chunkCount)+'</span>\
+        <span style="flex:1;"></span>\
+        '+action+'\
+      </div>\
+    </section>\
+  ';
+}
+
+// 旧的"下一步"按钮改为平滑滚动到对应阶段卡片
+function scrollToStage(n) {
+  const map = {1:"stageConvert", 2:"stageClean", 3:"stageChunk", 4:"stageIngest"};
+  const el = document.getElementById(map[n]);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function goChunk() { scrollToStage(3); }
+function goIngest() { scrollToStage(4); }
+
+// ── 上传 ─────────────────────────────────────────────────────────────
+let pendingFiles = [];
+function setupDropzone() {
+  const dz = document.getElementById("dropzone");
+  const input = document.getElementById("fileInput");
+  dz.addEventListener("click", () => input.click());
+  input.addEventListener("change", () => { pendingFiles = Array.from(input.files); updateUploadUI(); });
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("dragover"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+  dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("dragover"); pendingFiles = Array.from(e.dataTransfer.files); updateUploadUI(); });
+  document.getElementById("uploadBtn").addEventListener("click", doUpload);
+}
+
+function updateUploadUI() {
+  const btn = document.getElementById("uploadBtn");
+  btn.disabled = pendingFiles.length === 0;
+  let html = "";
+  pendingFiles.forEach((f) => {
+    const over = isOversized(f);
+    html += "<div class=\"file-row\"><span class=\"file-icon\">"+fileTypeIcon("",f.name.match(/\.\w+$/)?.[0]||".txt")+"</span><span class=\"file-name\">"+esc(f.name)+"</span><span class=\"file-meta\">"+formatSize(f.size)+"</span>"+(over?"<span class=\"badge badge-danger\">超出大小限制</span>":"")+"</div>";
+  });
+  const pi = document.getElementById("uploadProgress");
+  if (pi) { pi.innerHTML = pendingFiles.length ? "<div class=\"card\"><div class=\"card-header\">待上传 ("+pendingFiles.length+" 个文件)</div>"+html+"</div>" : ""; }
+}
+
+async function doUpload() {
+  if (!pendingFiles.length) return;
+  const valid = pendingFiles.filter(f => !isOversized(f));
+  const skipped = pendingFiles.length - valid.length;
+  if (skipped > 0) toast("已跳过 "+skipped+" 个超出大小限制的文件", "error");
+  if (!valid.length) return;
+  const fd = new FormData();
+  persistTenantScope();
+  valid.forEach(f => fd.append("files", f));
+  fd.append("mushroom_type", document.getElementById("mushroomType").value);
+  fd.append("product_id", document.getElementById("productId").value);
+  fd.append("tenant_id", document.getElementById("tenantId").value || "default");
+  fd.append("kb_id", document.getElementById("kbId").value || "default");
+  const btn = document.getElementById("uploadBtn");
+  btn.disabled = true; btn.textContent = "上传中...";
+  setStatus("上传文件", "正在上传 " + valid.length + " 个文件, 请稍等...", null);
+  try {
+    const r = await API.post("/api/files/upload", fd);
+    setStatus("上传完毕", "成功上传 " + r.files.length + " 个文件", null, "SUCCESS");
+    toast("上传成功: "+r.files.length+" 个文件");
+    pendingFiles = [];
+    document.getElementById("fileInput").value = "";
+    document.getElementById("uploadProgress").innerHTML = "";
+    await loadFiles();
+    // 自动选中第一个新上传的文件，方便立即进入工作流
+    if (!state.selectedFileId && r.files && r.files.length) state.selectedFileId = r.files[0].id;
+    render();
+  } catch(e) {
+    setStatus("上传文件 失败", e + "", null, "FAILURE");
+    toast("上传失败: "+e.message, "error");
+  }
+  btn.disabled = false; btn.textContent = "开始上传";
+  setTimeout(() => { setStatus(null); }, 3000);
+}
+
+// ── 转换 / 预览 / 编辑 ───────────────────────────────────────────────
+async function convertFile(id) {
+  // 立即禁用按钮，给用户即时反馈
+  const btn = document.getElementById("convertBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "提交中..."; }
+  try {
+    const r = await API.post("/api/convert/"+id);
+    toast("转换任务已提交");
+    pollTask(r.task_id, (s) => {
+      if (s.state === "SUCCESS") { toast("转换完成"); }
+    }, "转换文档", id);
+    // 后端已同步把状态写成 converting，这里拉取最新列表重绘，
+    // 徽章即显示"转换中"且按钮禁用（见 refreshAllFileLists）。
+    await loadFiles();
+    refreshAllFileLists();
+  } catch(e) { toast("提交失败: "+e.message, "error"); if (btn) { btn.disabled = false; btn.textContent = "转换"; } }
+}
+
+async function cleanFile(id) {
+  const btn = document.getElementById("cleanBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "提交中..."; }
+  try {
+    const r = await API.post("/api/clean/"+id);
+    toast("清洗任务已提交");
+    pollTask(r.task_id, async (s) => {
+      if (s.state === "SUCCESS") {
+        toast("清洗完成");
+        await refreshAllViews();
+        if (state.selectedFileId === id) await previewCleaned(id, false);
+      }
+    }, "清洗文档", id);
+    await loadFiles();
+    refreshAllFileLists();
+  } catch(e) {
+    toast("提交失败: "+e.message, "error");
+    if (btn) { btn.disabled = false; btn.textContent = "清洗"; }
+  }
+}
+
+let _convertFileId = null;
+let _convertRawMd = "";
+let _cleanFileId = null;
+let _cleanMd = "";
+
+async function _loadConvertPair(id) {
+  const r = await API.get("/api/converted/"+id);
+  _convertFileId = id;
+  _cleanFileId = id;
+  _convertRawMd = r.raw_markdown || r.markdown;
+  _cleanMd = ["cleaned","edited"].includes(r.clean_state) ? r.markdown : _convertRawMd;
+  return r;
+}
+
+function _setEditButtons(prefix, on) {
+  const sv = document.getElementById(prefix+"SaveBtn");
+  const cn = document.getElementById(prefix+"CancelBtn");
+  if (sv) sv.style.display = on ? "" : "none";
+  if (cn) cn.style.display = on ? "" : "none";
+}
+
+async function previewConverted(id, editMode) {
+  try {
+    await _loadConvertPair(id);
+    const card = document.getElementById("convertPreviewCard");
+    const md = document.getElementById("convertMarkdownPreview");
+    const ed = document.getElementById("convertMarkdownEditor");
+    if (!card || !md || !ed) return;
+    card.style.display = "";
+    ed.value = _convertRawMd;
+    if (editMode) {
+      md.style.display = "none";
+      ed.style.display = "";
+    } else {
+      md.style.display = "";
+      if (window.marked) { md.innerHTML = renderMarkdown(_convertRawMd); } else { md.textContent = _convertRawMd; }
+      ed.style.display = "none";
+    }
+    _setEditButtons("convert", !!editMode);
+  } catch(e) { toast("加载失败: "+e.message, "error"); }
+}
+
+async function previewCleaned(id, editMode) {
+  try {
+    const r = await _loadConvertPair(id);
+    const card = document.getElementById("cleanPreviewCard");
+    const md = document.getElementById("cleanMarkdownPreview");
+    const ed = document.getElementById("cleanMarkdownEditor");
+    if (!card || !md || !ed) return;
+    card.style.display = "";
+    ed.value = _cleanMd;
+    if (editMode) {
+      md.style.display = "none";
+      ed.style.display = "";
+    } else {
+      md.style.display = "";
+      if (window.marked) { md.innerHTML = renderMarkdown(_cleanMd); } else { md.textContent = _cleanMd; }
+      ed.style.display = "none";
+    }
+    _setEditButtons("clean", !!editMode);
+    renderCleanReport(r.clean_report, r.cleaner_version);
+  } catch(e) { toast("加载失败: "+e.message, "error"); }
+}
+
+function cancelConvertEdit() { if (_convertFileId) previewConverted(_convertFileId, false); }
+function cancelCleanEdit() { if (_cleanFileId) previewCleaned(_cleanFileId, false); }
+
+async function saveConvertEdit() {
+  const id = _convertFileId;
+  const ed = document.getElementById("convertMarkdownEditor");
+  const md = ed ? ed.value : "";
+  try {
+    await API.put("/api/converted/"+id, {markdown: md, target: "raw"});
+    toast("转换稿已保存，请重新清洗、切片并入库");
+    await refreshAllViews();
+    await previewConverted(id, false);
+  } catch(e) { toast("保存失败: "+e.message, "error"); }
+}
+
+async function saveCleanEdit() {
+  const id = _cleanFileId;
+  const ed = document.getElementById("cleanMarkdownEditor");
+  const md = ed ? ed.value : "";
+  try {
+    await API.put("/api/converted/"+id, {markdown: md, target: "cleaned"});
+    toast("清洗稿已保存，请重新切片并入库");
+    await refreshAllViews();
+    await previewCleaned(id, false);
+  } catch(e) { toast("保存失败: "+e.message, "error"); }
+}
+
+function cleanReportChips(report) {
+  const c = (report && report.counts) || {};
+  const defs = [
+    ["removed_noise_headings", "噪音标题"],
+    ["removed_page_residue", "页码残留"],
+    ["removed_empty_headings", "空标题"],
+    ["converted_bold_headings", "粗体转标题"],
+    ["demoted_heading_lines", "长句标题降级"],
+    ["split_paged_long_lines", "长行拆标题"],
+    ["converted_numbered_bodies", "编号转列表"],
+    ["merged_repeated_headings", "重复标题合并"],
+    ["removed_repeated_paragraph_text", "重复正文去重"],
+    ["normalized_ocr_spacing", "OCR空格"],
+    ["cleaned_inline_tags", "残留标签"],
+    ["normalized_list_bullets", "圆点规范化"],
+    ["demoted_h1_after_first", "H1降级"],
+    ["merged_soft_wraps", "软换行合并"],
+    ["merged_broken_sentences", "跨页断句合并"],
+    ["removed_ocr_garbage_fragments", "OCR残句删除"],
+    ["removed_invisible_chars", "隐形字符"],
+    ["collapsed_whitespace", "空格压缩"],
+    ["cleaned_link_markup", "链接清洗"],
+    ["heading_level_adjusted", "标题层级重建"]
+  ];
+  return defs.filter(([key]) => c[key]).map(([key, label]) =>
+    '<span class="badge badge-info">'+label+' '+c[key]+'</span>'
+  ).join("");
+}
+
+function renderCleanReport(report, version) {
+  const el = document.getElementById("cleanReportPanel");
+  if (!el) return;
+  const c = (report && report.counts) || {};
+  const total = Object.values(c).reduce((sum, n) => sum + (Number(n) || 0), 0);
+  if (!total) { el.style.display = "none"; return; }
+  const chips = cleanReportChips(report);
+  el.style.display = "";
+  el.innerHTML = '<div class="clean-report__head"><span>清洗报告 · 共 '+total+' 处调整</span><span class="muted">'+(version ? "v"+esc(version) : "")+'</span></div><div class="clean-report__chips">'+chips+'</div>';
+}
+
+// ── 切片 ─────────────────────────────────────────────────────────────
+async function doChunk() {
+  const id = state.selectedFileId;
+  if (!id) return;
+  const btn = document.getElementById("chunkBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "提交中..."; }
+  const body = { chunk_size: +document.getElementById("chunkSizeVal").value, overlap: +document.getElementById("chunkOverlapVal").value, max_parent_size: +document.getElementById("maxParentSizeVal").value };
+  const parentLookbackRaw = document.getElementById("parentLookbackVal").value.trim();
+  if (parentLookbackRaw !== "") body.parent_lookback_tokens = +parentLookbackRaw;
+  const childLookbackRaw = document.getElementById("childLookbackVal").value.trim();
+  if (childLookbackRaw !== "") body.child_lookback_tokens = +childLookbackRaw;
+  state.chunkParams = body;
+  try {
+    const r = await API.post("/api/chunks/"+id, body);
+    if (btn) btn.textContent = "切片中...";
+    toast("切片任务已提交");
+    pollTask(r.task_id, (s) => {
+      if (s.state === "SUCCESS") { toast("切片完成"); loadChunks(id); }
+    }, "切片文档", id);
+  } catch(e) { toast("提交失败: "+e.message, "error"); if (btn) { btn.disabled = false; btn.textContent = "切片"; } }
+}
+
+async function loadChunks(id) {
+  try {
+    const r = await API.get("/api/chunks/"+id);
+    // 防止过期响应：用户已切换到别的文件时，忽略本次结果
+    if (state.selectedFileId !== id) return;
+    const el = document.getElementById("chunkResult");
+    if (!el) return;
+    let html = "<div class=\"card\"><div class=\"card-header\">统计: "+r.parent_count+" 个父块, "+r.child_count+" 个子块, 平均 "+r.avg_child_size+"  token</div></div>";
+    html += '<div class="card"><div class="card-header">切片编辑</div>\
+      <div class="form-row">\
+        <button class="btn btn-sm btn-danger" id="chunkDelBtn" onclick="deleteSelectedChunks()" disabled>删除选中</button>\
+        <button class="btn btn-sm" id="chunkMergeBtn" onclick="mergeSelectedChunks()" disabled>合并选中</button>\
+        <span id="chunkEditCount" style="font-size:12px;color:var(--ink-faint);"></span>\
+      </div>\
+      <div style="font-size:12px;color:var(--warn);">提示: 编辑子块后会同步更新向量库，但请重新入库以确保数据完整。</div></div>';
+    r.parents.forEach((p, parentIndex) => {
+      const parentTitle = p.title || ("父块 " + (parentIndex + 1));
+      const parentContent = p.content ? esc(p.content) : "暂无父块内容";
+      html += '<div class="chunk-parent">';
+      html += '<div class="chunk-parent-title">' + esc(parentTitle) + ' [父块·' + p.size + ' token]';
+      if (p.parent_id) html += '<span class="chunk-parent-id">ID: ' + esc(p.parent_id) + '</span>';
+      html += '</div>';
+      html += '<details class="chunk-content-detail"><summary>父块内容</summary><pre class="chunk-content-pre">' + parentContent + '</pre></details>';
+      html += '<div class="chunk-children-title">子块（' + p.children.length + '）</div>';
+      p.children.forEach(c => {
+        const preview = c.content.length > 60 ? c.content.substring(0, 60) + "..." : c.content;
+        html += '<details class="chunk-child">';
+        html += '<summary>';
+        html += '<input type="checkbox" class="chunk-check" value="' + esc(c.id) + '" onclick="event.stopPropagation()" onchange="updateChunkEditToolbar()" title="选择该子块">';
+        html += '<span class="chunk-index">[' + c.index + ']</span>';
+        html += '<span class="chunk-text">' + esc(preview) + '</span>';
+        html += '<span class="chunk-size">' + c.size + ' token</span>';
+        html += '</summary>';
+        html += '<pre class="chunk-content-pre">' + esc(c.content) + '</pre>';
+        html += '</details>';
+      });
+      html += '</div>';
+    });
+    html += '<div style="margin-top:12px;"><button class="btn btn-primary" onclick="scrollToStage(4)">下一步: 入库</button></div>';
+    el.innerHTML = html;
+    updateChunkEditToolbar();
+  } catch(e) { if (state.selectedFileId !== id) return; const el = document.getElementById("chunkResult"); if (el) el.innerHTML = "<div class=\"card\"><p class=\"muted\">暂无切片数据</p></div>"; }
+}
+
+function getSelectedChunkIds() {
+  return Array.from(document.querySelectorAll(".chunk-check:checked")).map(cb => cb.value);
+}
+
+function updateChunkEditToolbar() {
+  const n = getSelectedChunkIds().length;
+  const del = document.getElementById("chunkDelBtn");
+  const merge = document.getElementById("chunkMergeBtn");
+  const count = document.getElementById("chunkEditCount");
+  if (del) del.disabled = n < 1;
+  if (merge) merge.disabled = n < 2;
+  if (count) count.textContent = n ? "已选 "+n+" 个" : "";
+}
+
+async function deleteSelectedChunks() {
+  const ids = getSelectedChunkIds();
+  if (!ids.length) { toast("请先勾选要删除的子块", "error"); return; }
+  if (!confirm("确认删除选中的 "+ids.length+" 个子块？")) return;
+  try {
+    await API.put("/api/chunks/"+state.selectedFileId, {action:"delete", chunk_ids: ids});
+    toast("已删除，请重新入库以更新向量");
+    await refreshAllViews();
+    loadChunks(state.selectedFileId);
+  } catch(e) { toast("删除失败: "+e.message, "error"); }
+}
+
+async function mergeSelectedChunks() {
+  const ids = getSelectedChunkIds();
+  if (ids.length < 2) { toast("合并至少需要选中 2 个子块", "error"); return; }
+  if (!confirm("确认合并选中的 "+ids.length+" 个子块？")) return;
+  try {
+    const r = await API.put("/api/chunks/"+state.selectedFileId, {action:"merge", chunk_ids: ids});
+    toast("已合并，请重新入库以更新向量");
+    if (r.task_id) pollTask(r.task_id, () => {}, "合并重嵌入");
+    await refreshAllViews();
+    loadChunks(state.selectedFileId);
+  } catch(e) { toast("合并失败: "+e.message, "error"); }
+}
+
+// ── 入库 / 一键全流程 ────────────────────────────────────────────────
+async function ingestFile(id, type) {
+  const url = type === "image" ? "/api/ingest-image/"+id : "/api/ingest/"+id;
+  try {
+    const r = await API.post(url);
+    toast("入库任务已提交");
+    // 入库中的徽章刷新由 pollTask 的 PROGRESS 映射统一处理
+    pollTask(r.task_id, (s) => {
+      if (s.state === "SUCCESS") {
+        const warn = ingestDedupWarning(s.result);
+        toast(warn || "入库完成", warn ? "warn" : "success");
+      }
+    }, "入库", id);
+  } catch(e) { toast("提交失败: "+e.message, "error"); }
+}
+
+async function runFullPipeline() {
+  const sel = document.getElementById("fullPipelineSelect");
+  const id = sel ? sel.value : null;
+  if (!id) { toast("请先选择文件", "error"); return; }
+  try {
+    const r = await API.post("/api/ingest-full/"+id, getChunkParams());
+    toast("全流程任务已提交: 转换 → 清洗 → 切片 → 入库");
+    pollTask(r.task_id, (s) => {
+      if (s.state === "SUCCESS") {
+        const warn = ingestDedupWarning(s.result && s.result.ingestion);
+        toast(warn || "全流程完成", warn ? "warn" : "success");
+      }
+    }, "全流程处理", id);
+  } catch(e) { toast("提交失败: "+e.message, "error"); }
+}
+
+function onFullPipelineChange() {
+  const sel = document.getElementById("fullPipelineSelect");
+  const btn = document.getElementById("fullPipelineBtn");
+  btn.disabled = !sel || !sel.value;
+}
+
+// ── 列表刷新 / 删除 ──────────────────────────────────────────────────
+let _lastWorkflowStatus = null;
+
+// 轻量级刷新：更新左栏列表与全流程下拉；选中文件状态变化时重绘工作流
+function refreshAllFileLists() {
+  refreshFileList();
+  const fpSel = document.getElementById("fullPipelineSelect");
+  if (fpSel) {
+    const selVal = fpSel.value;
+    fpSel.innerHTML = '<option value="">-- 选择文件 --</option>' + state.files.map(f => '<option value="'+esc(f.id)+'"'+(f.id===selVal?' selected':'')+'>'+esc(f.name)+' ('+(f.type==='text'?'文本':esc(f.type))+' · '+badgeText(f.status)+')</option>').join("");
+  }
+  const f = state.files.find(x => x.id === state.selectedFileId);
+  const sig = f ? f.id + ":" + f.status + ":" + (f.clean_state || "raw") + ":" + (f.has_clean ? "clean" : "no-clean") : "none";
+  if (sig !== _lastWorkflowStatus) {
+    _lastWorkflowStatus = sig;
+    renderWorkflow();
+  }
+}
+
+// 中央刷新：重新拉取文件，再就地更新所有可见列表
+async function refreshAllViews() {
+  await loadFiles();
+  refreshAllFileLists();
+}
+
+async function performDeleteFile(id) {
+  if (state.selectedFileId === id) state.selectedFileId = null;
+  // 乐观删除：先从本地移除并重绘，让删除立刻生效（后端真正删除在后台进行，
+  // 若失败再从服务器恢复真实列表）。避免等待慢的 Milvus 清理导致"删了还在"。
+  state.files = state.files.filter(f => f.id !== id);
+  refreshAllFileLists();
+  try {
+    await API.del("/api/files/"+id);
+    toast("已删除");
+    _fetchAndRefreshStats();
+  } catch(e) {
+    toast("删除失败: "+e.message, "error");
+    await refreshAllViews();
+  }
+}
+
+// ── Milvus 统计 ──────────────────────────────────────────────────────
+async function deleteFile(id) {
+  openDeleteConfirm(id);
+}
+
+let deleteConfirmFileId = null;
+
+function openDeleteConfirm(id) {
+  deleteConfirmFileId = id;
+  const input = document.getElementById("deleteConfirmInput");
+  const btn = document.getElementById("deleteConfirmBtn");
+  if (input) input.value = "";
+  if (btn) btn.disabled = true;
+  const overlay = document.getElementById("deleteConfirmOverlay");
+  if (overlay) overlay.style.display = "flex";
+  if (input) input.focus();
+}
+
+function closeDeleteConfirm() {
+  const overlay = document.getElementById("deleteConfirmOverlay");
+  if (overlay) overlay.style.display = "none";
+  deleteConfirmFileId = null;
+}
+
+function onDeleteConfirmInput() {
+  const input = document.getElementById("deleteConfirmInput");
+  const btn = document.getElementById("deleteConfirmBtn");
+  if (input && btn) btn.disabled = input.value.trim() !== "确认";
+}
+
+async function confirmDeleteFile() {
+  const id = deleteConfirmFileId;
+  if (!id) return;
+  closeDeleteConfirm();
+  await performDeleteFile(id);
+}
+let _statsPending = null;
+let _milvusStatsReq = 0;
+let _milvusStatsColl = "";
+let _milvusStatsHasCard = false;
+
+function _fetchAndRefreshStats() {
+  if (!document.getElementById("globalMilvusStats") && !document.getElementById("milvusStatsCard")) return;
+  // Deduplicate concurrent calls — reuse the in-flight promise
+  if (_statsPending) return _statsPending;
+  _statsPending = API.get("/api/milvus/stats").then(s => {
+    // 更新文档处理页标题旁的紧凑统计（存在时）
+    var statsEl = document.getElementById("globalMilvusStats");
+    if (statsEl) renderGlobalStats(statsEl, s);
+    // 更新向量库页的统计卡（存在时）
+    var mcEl = document.getElementById("milvusStatsCard");
+    if (mcEl) {
+      if (document.getElementById("milvusCollection")) {
+        loadMilvusCollectionStats();
+      } else {
+        mcEl.innerHTML = `<div class="stats-row">
+          <div class="stat-card"><div class="stat-value">${s.text.num_entities}</div></div>
+          <div class="stat-card"><div class="stat-value">${s.image.num_entities}</div></div>
+        </div>`;
+      }
+    }
+  }).catch(() => {}).finally(() => { _statsPending = null; });
+  return _statsPending;
+}
+
+// Lightweight stats counter update after optimistic delete — doesn't hit
+// the server; just decrements both stat panels in-place.
+function _optimisticDecrementStats(coll, count) {
+  if (!count) count = 1;
+  var el = document.getElementById("globalMilvusStats");
+  if (el) {
+    var card = el.querySelector('.stat-card[data-collection="' + coll + '"]');
+    var numEl = card ? card.querySelector(".stat-num") : null;
+    if (numEl) {
+      var c = parseInt(numEl.textContent) || 0;
+      numEl.textContent = Math.max(0, c - count);
+    }
+  }
+  var mcEl = document.getElementById("milvusStatsCard");
+  if (mcEl) {
+    var cards = Array.from(mcEl.querySelectorAll(".stat-card"));
+    var card = cards.find(c => c.dataset.collection === coll);
+    var numEl = card ? card.querySelector(".stat-value") : null;
+    if (numEl) {
+      var c2 = parseInt(numEl.textContent) || 0;
+      numEl.textContent = Math.max(0, c2 - count);
+    }
+  }
+}
+
+async function loadMilvusCollectionStats() {
+  const el = document.getElementById("milvusStatsCard");
+  const input = document.getElementById("milvusCollection");
+  if (!el || !input) return;
+  const coll = input.value.trim() || milvusColl;
+  const req = ++_milvusStatsReq;
+  if (_milvusStatsColl !== coll || !_milvusStatsHasCard || !el.querySelector(".stat-card")) {
+    _milvusStatsColl = coll;
+    _milvusStatsHasCard = false;
+    el.innerHTML = `<div class="stats-row"><div class="stat-card" data-collection="${esc(coll)}"><div class="stat-value">...</div></div></div>`;
+  }
+  try {
+    const s = await API.get("/api/milvus/stats?collection=" + encodeURIComponent(coll));
+    if (req !== _milvusStatsReq || input.value.trim() !== coll) return;
+    if (!_milvusStatsHasCard) {
+      el.innerHTML = `<div class="stats-row">
+        <div class="stat-card" data-collection="${esc(coll)}">
+          <div class="stat-value">${s.num_entities}</div>
+        </div>
+      </div>`;
+      _milvusStatsHasCard = true;
+    } else {
+      const numEl = el.querySelector(".stat-value");
+      if (numEl) numEl.textContent = s.num_entities;
+    }
+  } catch(e) {
+    if (req === _milvusStatsReq) {
+      const msg = (e && e.message && !String(e.message).includes("NetworkError")) ? e.message : "无法访问该 Collection";
+      if (!_milvusStatsHasCard) {
+        el.innerHTML = `<div class="stats-row"><div class="stat-card"><div class="stat-value">-</div><div style="font-size:12px;color:var(--ink-faint);margin-top:2px;">${esc(msg)}</div></div></div>`;
+      }
+    }
+  }
+}
+
+function renderGlobalStats(el, s) {
+  if (!el) return;
+  el.style.display = "";
+  var t = s.text.num_entities;
+  var i = s.image.num_entities;
+  el.innerHTML = '<div class="stats-row">\
+    <div class="stat-card" data-collection="mushroom_knowledge"><svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div class="stat-info"><div class="stat-num">'+t+'</div></div></div>\
+    <div class="stat-card" data-collection="mushroom_images"><svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><div class="stat-info"><div class="stat-num">'+i+'</div></div></div>\
+  </div>';
+}
+
+// Keep for backward compat
+function refreshGlobalMilvusStats(data) {
+  if (data) {
+    renderGlobalStats(document.getElementById("globalMilvusStats"), data);
+    var mcEl = document.getElementById("milvusStatsCard");
+    if (mcEl) {
+      mcEl.innerHTML = '<div class="stats-row">\
+        <div class="stat-card"><div class="stat-value">' + data.text.num_entities + '</div></div>\
+        <div class="stat-card"><div class="stat-value">' + data.image.num_entities + '</div></div>\
+      </div>';
+    }
+  } else {
+    _fetchAndRefreshStats();
+  }
+}
+
+// ── 向量库页（Milvus 管理）───────────────────────────────────────────
+function renderMilvusPage(app) {
+  app.innerHTML = `
+    <header class="page-header">
+      <div>
+        <h1 class="page-header__title">向量库</h1>
+      </div>
+    </header>
+    <div class="card">
+      <div class="form-row">
+        <label for="milvusCollection">Collection:</label>
+        <input type="text" id="milvusCollection" list="milvusCollectionList" onchange="onMilvusCollectionChange()" onkeydown="if(event.key===13) searchMilvusDocs()" placeholder="输入已有的向量集合名称">
+        <datalist id="milvusCollectionList"></datalist>
+      </div>
+      <div class="milvus-filter-grid">
+        <label>文件名 <input type="text" id="milvusFileName" placeholder="按文件名模糊搜索"></label>
+        <label>租户编号 <input type="text" id="milvusTenant" placeholder="留空表示不限制"></label>
+        <label>知识库编号 <input type="text" id="milvusKb" placeholder="留空表示不限制"></label>
+        <label>内容关键词 <input type="text" id="milvusSearch" placeholder="匹配内容/描述"></label>
+        <label>源文件 ID <input type="text" id="milvusSource" placeholder="精确匹配 source ID"></label>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-sm btn-primary" onclick="searchMilvusDocs()">搜索</button>
+        <button class="btn btn-sm" onclick="resetMilvusFilters()">重置</button>
+        <span style="flex:1;"></span>
+        <span style="font-size:11px;color:var(--ink-faint);align-self:center;">每页最多展示 20 条</span>
+      </div>
+    </div>
+    <div id="milvusStatsCard"></div>
+    <div id="milvusToolbar" style="margin-bottom:12px;display:none;">
+      <button class="btn btn-sm btn-danger" onclick="batchDeleteMilvus()">${icon("trash-2",14)} 删除选中</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAllMilvus()">${icon("x-circle",14)} 全部删除</button>
+      <span id="milvusSelectCount" style="font-size:12px;color:var(--ink-faint);margin-left:8px;"></span>
+    </div>
+    <div id="milvusDocList"></div>
+  `;
+  populateMilvusCollections();
+  loadMilvusCollectionStats();
+  loadMilvusDocs();
+}
+
+async function populateMilvusCollections() {
+  const input = document.getElementById("milvusCollection");
+  const dl = document.getElementById("milvusCollectionList");
+  if (!input || !dl) return;
+  try {
+    const r = await API.get("/api/milvus/collections");
+    const names = r.collections || [];
+    const currentlyValid = names.indexOf(input.value.trim()) >= 0;
+    dl.innerHTML = names.map(c => "<option value=\"" + esc(c) + "\"></option>").join("");
+    if (!currentlyValid) {
+      milvusColl = r.default && names.indexOf(r.default) >= 0 ? r.default : (names[0] || milvusColl);
+      input.value = milvusColl;
+    }
+    if (!input.value.trim()) input.value = milvusColl;
+  } catch(e) {
+    if (!input.value) input.value = milvusColl;
+  }
+}
+
+function resetMilvusFilters() {
+  ["milvusFileName", "milvusTenant", "milvusKb", "milvusSearch", "milvusSource"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  searchMilvusDocs();
+}
+
+function onMilvusCollectionChange() {
+  const input = document.getElementById("milvusCollection");
+  const next = input ? input.value.trim() : "";
+  if (next) milvusColl = next;
+  if (input) input.value = milvusColl;
+  milvusPage = 1;
+  loadMilvusCollectionStats();
+  loadMilvusDocs();
+}
+
+// Search/source-filter entry point: any new filter restarts at page 1.
+function searchMilvusDocs() { milvusPage = 1; loadMilvusDocs(); }
+
+let milvusDocs = [];
+let milvusColl = "mushroom_knowledge";
+let milvusPkField = "id";
+const MILVUS_PAGE_SIZE = 20;
+let milvusPage = 1;
+
+function milvusTableBodyHtml() {
+  return milvusDocs.map((d, i) => `
+    <tr>
+      <td style="width:32px;"><input type="checkbox" class="milvus-check" value="${i}" onchange="updateMilvusToolbar()"></td>
+      <td class="milvus-id-cell" title="${esc(d.pk)}">${esc(String(d.pk).substring(0, 12))}...</td>
+      <td style="max-width:420px;">${milvusCellContent(d)}</td>
+      <td style="min-width:160px;">${milvusSourceCell(d)}</td>
+      <td style="width:50px;"><button class="btn btn-sm btn-danger" data-pk="${esc(d.pk)}" data-coll="${esc(milvusColl)}" onclick="deleteMilvusDoc(this.dataset.pk, this.dataset.coll)" title="删除">${icon("trash-2",12)}</button></td>
+    </tr>`).join("");
+}
+
+function milvusMetaHtml(d) {
+  const parts = [];
+  if (d.tenant_id) parts.push("tenant=" + d.tenant_id);
+  if (d.kb_id) parts.push("kb=" + d.kb_id);
+  if (d.parent_id) parts.push("parent=" + d.parent_id);
+  if (d.chunk_index !== null && d.chunk_index !== undefined && d.chunk_index !== "") parts.push("chunk=" + d.chunk_index);
+  if (d.doc_version !== null && d.doc_version !== undefined && d.doc_version !== "") parts.push("v" + d.doc_version);
+  if (d.product_id) parts.push("product=" + d.product_id);
+  if (!parts.length) return "";
+  return `<div class="milvus-meta">${parts.map(p => "<span>" + esc(p) + "</span>").join("")}</div>`;
+}
+
+function milvusCellContent(d) {
+  const text = d.content || d.description || d.parent_content || "";
+  const str = String(text);
+  const preview = str.length > 80 ? str.substring(0, 80) + "..." : str;
+  return `<span class="milvus-cell-preview">${esc(preview)}</span>${milvusMetaHtml(d)}<details class="milvus-content-detail"><summary>查看完整内容</summary><pre class="milvus-content-pre">${esc(str)}</pre></details>`;
+}
+
+function milvusSourceCell(d) {
+  const name = d.source_name || d.source || "";
+  return `<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);">${esc(name)}${d.source && d.source !== name ? `<div class="milvus-id-cell">${esc(d.source)}</div>` : ""}</div>`;
+}
+
+// Pagination footer: total count + prev/next across pages.
+function milvusPaginationHtml(total) {
+  const pages = Math.max(1, Math.ceil((total || 0) / MILVUS_PAGE_SIZE));
+  const cur = Math.min(milvusPage, pages);
+  return '<div style="display:flex;align-items:center;gap:12px;margin-top:10px;font-size:12px;color:var(--ink-faint);">\
+    <span>共 '+total+' 条 · 第 '+cur+'/'+pages+' 页</span>\
+    <span style="flex:1;"></span>\
+    <button class="btn btn-sm" onclick="milvusPagePrev()" '+(cur<=1?"disabled":"")+'>上一页</button>\
+    <button class="btn btn-sm" onclick="milvusPageNext()" '+(cur>=pages?"disabled":"")+'>下一页</button>\
+  </div>';
+}
+
+function milvusPagePrev() { if (milvusPage > 1) { milvusPage--; loadMilvusDocs(); } }
+function milvusPageNext() { milvusPage++; loadMilvusDocs(); }
+
+async function loadMilvusStatsFull() {
+  _fetchAndRefreshStats();
+}
+
+async function loadMilvusDocs() {
+  const input = document.getElementById("milvusCollection");
+  const next = input ? input.value.trim() : "";
+  if (next) milvusColl = next;
+  if (input) input.value = milvusColl;
+  const q = document.getElementById("milvusSearch")?.value.trim() || "";
+  const source = document.getElementById("milvusSource")?.value.trim() || "";
+  const file_name = document.getElementById("milvusFileName")?.value.trim() || "";
+  const tenant_id = document.getElementById("milvusTenant")?.value.trim() || "";
+  const kb_id = document.getElementById("milvusKb")?.value.trim() || "";
+  const params = new URLSearchParams();
+  params.set("collection", milvusColl);
+  params.set("page", milvusPage);
+  params.set("limit", MILVUS_PAGE_SIZE);
+  if (file_name) params.set("file_name", file_name);
+  if (tenant_id) params.set("tenant_id", tenant_id);
+  if (kb_id) params.set("kb_id", kb_id);
+  if (q) params.set("q", q);
+  if (source) params.set("source", source);
+  const url = "/api/milvus/documents?" + params.toString();
+  try {
+    const r = await API.get(url);
+    const el = document.getElementById("milvusDocList");
+    const tb = document.getElementById("milvusToolbar");
+    if (!el) return;
+    milvusDocs = r.documents;
+    if (r.pk_field) milvusPkField = r.pk_field;
+    milvusDocs = milvusDocs.map(d => ({ ...d, pk: String(d.pk != null ? d.pk : d.id) }));
+    const truncNote = r.file_name_truncated ? `<div class="milvus-stats-note">文件名匹配超过 500 个，仅按最新 500 个源文件过滤。</div>` : "";
+    if (!r.documents.length) {
+      if (tb) tb.style.display = "none";
+      el.innerHTML = `<div class="card"><div class="empty-state"><div class="icon">${icon("search",48)}</div><p>${esc(milvusColl)} 无结果 (共 ${r.total} 条)</p></div>${truncNote}${milvusPaginationHtml(r.total)}</div>`;
+      loadMilvusCollectionStats();
+      return;
+    }
+    if (tb) tb.style.display = "";
+    el.innerHTML = `<div class="card">
+      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px;">共 ${r.total} 条${truncNote}</div>
+      <table><thead><tr><th style="width:32px;"><input type="checkbox" id="milvusCheckAll" onchange="toggleCheckAllMilvus()" title="全选"></th><th>ID</th><th>内容（完整）</th><th>源文件</th><th style="width:50px;">操作</th></tr></thead><tbody>${milvusTableBodyHtml()}</tbody></table>${milvusPaginationHtml(r.total)}
+    </div>`;
+    // Must be after innerHTML so checkboxes exist
+    var cbAll = document.getElementById("milvusCheckAll");
+    if (cbAll) cbAll.checked = false;
+    updateMilvusToolbar();
+    loadMilvusCollectionStats();
+    setTimeout(refreshIcons, 50);
+  } catch(e) {
+    const el = document.getElementById("milvusDocList");
+    if (el) el.innerHTML = `<div class="card"><p style="color:var(--ink-faint);">加载失败: ${esc(e && e.message ? e.message : e)}</p></div>`;
+    loadMilvusCollectionStats();
+  }
+}
+
+function getCheckedMilvus() {
+  return Array.from(document.querySelectorAll(".milvus-check:checked")).map(cb => {
+    const i = parseInt(cb.value);
+    return milvusDocs[i];
+  });
+}
+
+function updateMilvusToolbar() {
+  const checked = getCheckedMilvus();
+  const countEl = document.getElementById("milvusSelectCount");
+  if (countEl) countEl.textContent = checked.length ? "已选 "+checked.length+" 条" : "";
+  const all = document.querySelectorAll(".milvus-check");
+  const checkedAll = all.length > 0 && checked.length === all.length;
+  const cb = document.getElementById("milvusCheckAll");
+  if (cb) cb.checked = checkedAll;
+}
+
+function toggleCheckAllMilvus() {
+  const all = document.getElementById("milvusCheckAll");
+  document.querySelectorAll(".milvus-check").forEach(cb => { cb.checked = all.checked; });
+  updateMilvusToolbar();
+}
+
+async function deleteMilvusDoc(id, coll) {
+  if (!confirm("确认删除该向量数据？")) return;
+  const delId = "single_del_"+Date.now();
+  state.runningTasks[delId] = { label: "删除向量数据", step: "deleting", pct: 30 };
+  renderTaskPanel();
+  setStatus("删除向量数据", "正在删除...", 30);
+  // Optimistically remove the row from the local array and
+  // re-render the table immediately so the row vanishes at once.
+  milvusDocs = milvusDocs.filter(d => String(d.pk) !== String(id));
+  _renderMilvusTable();
+  refreshGlobalMilvusStatsAfterDelete(coll);
+  try {
+    await API.del("/api/milvus/documents/"+encodeURIComponent(id)+"?collection="+encodeURIComponent(coll)+"&"+tenantScopeQuery());
+    state.runningTasks[delId] = { label: "删除向量数据", step: "done", pct: 100, state: "SUCCESS" };
+    renderTaskPanel();
+    setStatus("删除完毕", "", 100, "SUCCESS");
+    toast("已删除");
+    // Wait for Milvus flush+load to settle, then reconcile from server
+    setTimeout(() => loadMilvusDocs(), 600);
+  } catch(e) {
+    // Restore from server if the delete actually failed
+    loadMilvusDocs();
+    state.runningTasks[delId] = { label: "删除向量数据", step: "done", pct: 0, state: "FAILURE" };
+    renderTaskPanel();
+    setStatus("删除失败", e.message, 0, "FAILURE");
+    toast("删除失败: "+e.message, "error");
+  }
+  setTimeout(() => { delete state.runningTasks[delId]; renderTaskPanel(); setStatus(null); }, 3000);
+}
+
+// Re-render the Milvus table from the current `milvusDocs` array
+// without calling the server — pure local update.
+function _renderMilvusTable() {
+  milvusDocs = milvusDocs.map(d => ({ ...d, pk: String(d.pk != null ? d.pk : d.id) }));
+  const el = document.getElementById("milvusDocList");
+  const tb = document.getElementById("milvusToolbar");
+  if (!el) return;
+  if (!milvusDocs.length) {
+    if (tb) tb.style.display = "none";
+    el.innerHTML = "<div class=\"card\"><div class=\"empty-state\"><div class=\"icon\">"+icon("search",48)+"</div><p>无结果 (共 0 条)</p></div></div>";
+    return;
+  }
+  if (tb) tb.style.display = "";
+  el.innerHTML = `<div class="card">
+    <div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px;">共 ${milvusDocs.length} 条</div>
+    <table><thead><tr><th style="width:32px;"><input type="checkbox" id="milvusCheckAll" onchange="toggleCheckAllMilvus()" title="全选"></th><th>ID</th><th>内容（完整）</th><th>源文件</th><th style="width:50px;">操作</th></tr></thead><tbody>${milvusTableBodyHtml()}</tbody></table>${milvusPaginationHtml(milvusDocs.length)}
+  </div>`;
+  // and new checkbox elements exist.
+  var cbAll = document.getElementById("milvusCheckAll");
+  if (cbAll) cbAll.checked = false;
+  updateMilvusToolbar();
+  setTimeout(refreshIcons, 50);
+}
+
+// Lightweight: decrement both stat panels in-place (no server round-trip).
+function refreshGlobalMilvusStatsAfterDelete(coll, count) {
+  _optimisticDecrementStats(coll, count);
+}
+
+async function batchDeleteMilvus() {
+  const checked = getCheckedMilvus();
+  if (!checked.length) { toast("请先勾选要删除的数据", "error"); return; }
+  if (!confirm("确定要删除选中的 "+checked.length+" 条向量数据吗？此操作不可撤销。")) return;
+  const ids = checked.map(d => d.pk != null ? d.pk : d.id);
+  // Optimistically remove rows and re-render the table immediately
+  const checkSet = new Set(ids.map(String));
+  milvusDocs = milvusDocs.filter(d => !checkSet.has(String(d.pk)));
+  _renderMilvusTable();
+  // Also decrement the global stat counters optimistically
+  refreshGlobalMilvusStatsAfterDelete(milvusColl, ids.length);
+  const delId = "batch_del_"+Date.now();
+  state.runningTasks[delId] = { label: "批量删除向量数据", step: "deleting", pct: 0 };
+  renderTaskPanel();
+  setStatus("批量删除向量数据", "正在删除 "+ids.length+" 条数据...", 0);
+  try {
+    const r = await API.post("/api/milvus/batch-delete?collection="+encodeURIComponent(milvusColl)+"&"+tenantScopeQuery(), ids);
+    state.runningTasks[delId] = { label: "批量删除向量数据", step: "done", pct: 100, state: "SUCCESS" };
+    renderTaskPanel();
+    setStatus("批量删除完毕", "成功删除 "+r.count+" 条数据", 100, "SUCCESS");
+    toast("删除完成: "+r.count+" 条成功");
+    // Wait for Milvus flush+load to settle before reconciling from server
+    setTimeout(() => loadMilvusDocs(), 600);
+  } catch(e) {
+    // Restore from server if the batch delete actually failed
+    loadMilvusDocs();
+    state.runningTasks[delId] = { label: "批量删除向量数据", step: "done", pct: 0, state: "FAILURE" };
+    renderTaskPanel();
+    setStatus("批量删除失败", e.message, 0, "FAILURE");
+    toast("批量删除失败: "+e.message, "error");
+  }
+  setTimeout(() => { delete state.runningTasks[delId]; renderTaskPanel(); setStatus(null); }, 3000);
+}
+
+async function deleteAllMilvus() {
+  if (!milvusDocs.length) { toast("没有可删除的数据", "error"); return; }
+  if (!confirm("确定要删除当前列表中的全部 "+milvusDocs.length+" 条向量数据吗？此操作不可撤销。")) return;
+  if (!confirm("再次确认: 这将会清空所有筛选结果，确定继续？")) return;
+  const ids = milvusDocs.map(d => d.pk != null ? d.pk : d.id);
+  // Optimistically clear the list and stats immediately
+  const oldCount = milvusDocs.length;
+  milvusDocs = [];
+  _renderMilvusTable();
+  refreshGlobalMilvusStatsAfterDelete(milvusColl, oldCount);
+  const delId = "all_del_"+Date.now();
+  state.runningTasks[delId] = { label: "全部删除向量数据", step: "deleting", pct: 0 };
+  renderTaskPanel();
+  setStatus("全部删除向量数据", "正在删除 "+ids.length+" 条数据...", 0);
+  try {
+    const r = await API.post("/api/milvus/batch-delete?collection="+encodeURIComponent(milvusColl)+"&"+tenantScopeQuery(), ids);
+    state.runningTasks[delId] = { label: "全部删除向量数据", step: "done", pct: 100, state: "SUCCESS" };
+    renderTaskPanel();
+    setStatus("全部删除完毕", "成功删除 "+r.count+" 条数据", 100, "SUCCESS");
+    toast("删除完成: "+r.count+" 条成功");
+    // Wait for Milvus flush+load to settle before reconciling from server
+    setTimeout(() => loadMilvusDocs(), 600);
+  } catch(e) {
+    // Restore from server if the batch delete actually failed
+    loadMilvusDocs();
+    state.runningTasks[delId] = { label: "全部删除向量数据", step: "done", pct: 0, state: "FAILURE" };
+    renderTaskPanel();
+    setStatus("全部删除失败", e.message, 0, "FAILURE");
+    toast("全部删除失败: "+e.message, "error");
+  }
+  setTimeout(() => { delete state.runningTasks[delId]; renderTaskPanel(); setStatus(null); }, 3000);
+}
+
+// ── 初始化 ───────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  // Restore the saved API key (if any) into the sidebar field.
+  const keyInput = document.getElementById("apiKeyInput");
+  const keyStatus = document.getElementById("apiKeyStatus");
+  if (keyInput) {
+    keyInput.value = localStorage.getItem("pipeline_api_key") || "";
+    keyInput.addEventListener("change", () => {
+      const k = keyInput.value.trim();
+      if (k) localStorage.setItem("pipeline_api_key", k);
+      else localStorage.removeItem("pipeline_api_key");
+      if (keyStatus) keyStatus.textContent = k ? "已保存" : "已清除";
+      setTimeout(() => { if (keyStatus) keyStatus.textContent = ""; }, 2000);
+    });
+  }
+
+  await loadFiles();
+  render();
+
+  // Refresh upload size caps + auth requirement from the backend.
+  try {
+    const c = await API.get("/api/config");
+    uploadCaps = { max_file_size_mb: c.max_file_size_mb, max_image_size_mb: c.max_image_size_mb };
+    // If the backend requires an API key but none is saved, tell the user
+    // up-front — otherwise every mutating action silently 401s.
+    if (c.api_key_required && !localStorage.getItem("pipeline_api_key")) {
+      const statusEl = document.getElementById("apiKeyStatus");
+      if (statusEl) {
+        statusEl.textContent = "⚠ 后端已启用 API Key，请在此填写";
+        statusEl.style.color = "var(--warn)";
+      }
+      toast("后端需要 API Key：请在左侧边栏填写（与 .env 的 API_KEY 一致），否则删除/上传/入库会失败", "error");
+    }
+  } catch(e) {}
+
+  // Sidebar page switching
+  document.querySelectorAll(".sidebar__nav-item[data-page]").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      state.activePage = el.dataset.page;
+      // Render immediately with cached data; then refresh from server.
+      render();
+      loadFiles().then(() => render());
+    });
+  });
+
+  // 初始化全局 Milvus 统计
+  _fetchAndRefreshStats();
+
+  // 每 8 秒后台静默刷新 Milvus 统计（二次确认，校正任何遗漏）
+  setInterval(function() {
+    _fetchAndRefreshStats();
+  }, 8000);
+});
+
+window.deleteFile = deleteFile;
+window.selectFile = selectFile;
+window.convertFile = convertFile;
+window.refreshAllFileLists = refreshAllFileLists;
+window.previewConverted = previewConverted;
+window.previewCleaned = previewCleaned;
+window.cancelConvertEdit = cancelConvertEdit;
+window.cancelCleanEdit = cancelCleanEdit;
+window.saveConvertEdit = saveConvertEdit;
+window.saveCleanEdit = saveCleanEdit;
+window.scrollToStage = scrollToStage;
+window.goChunk = goChunk;
+window.goIngest = goIngest;
+window.doChunk = doChunk;
+window.syncRangeNum = syncRangeNum;
+window.syncNumRange = syncNumRange;
+window.loadChunks = loadChunks;
+window.ingestFile = ingestFile;
+window.runFullPipeline = runFullPipeline;
+window.onFullPipelineChange = onFullPipelineChange;
+window.getSelectedChunkIds = getSelectedChunkIds;
+window.updateChunkEditToolbar = updateChunkEditToolbar;
+window.deleteSelectedChunks = deleteSelectedChunks;
+window.mergeSelectedChunks = mergeSelectedChunks;
+window.loadMilvusDocs = loadMilvusDocs;
+window.deleteMilvusDoc = deleteMilvusDoc;
+window.batchDeleteMilvus = batchDeleteMilvus;
+window.deleteAllMilvus = deleteAllMilvus;
+window._renderMilvusTable = _renderMilvusTable;
+window.refreshGlobalMilvusStatsAfterDelete = refreshGlobalMilvusStatsAfterDelete;
+window.toggleCheckAllMilvus = toggleCheckAllMilvus;
+window.updateMilvusToolbar = updateMilvusToolbar;
+window.onMilvusCollectionChange = onMilvusCollectionChange;
+window.refreshGlobalMilvusStats = refreshGlobalMilvusStats;
+window.milvusPagePrev = milvusPagePrev;
+window.milvusPageNext = milvusPageNext;
+window.searchMilvusDocs = searchMilvusDocs;
+window.resetMilvusFilters = resetMilvusFilters;
+</script>
+<div id="metaEditOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card,#fff);border-radius:8px;padding:24px;width:min(420px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <h3 style="margin:0 0 16px;font-size:15px;">编辑文件信息</h3>
+    <div id="metaEditFields" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <div style="margin-top:20px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sm" onclick="closeMetaEdit()">取消</button>
+      <button class="btn btn-sm btn-primary" onclick="saveMetaEdit()">保存</button>
+    </div>
+  </div>
+</div>
+<script>
+function openMetaEdit(fileId) {
+  const f = state.files.find(x => x.id === fileId);
+  if (!f) return;
+  const fields = [
+    { key: "tenant_id",   label: "租户编号",   value: f.tenant_id || "default" },
+    { key: "kb_id",       label: "知识库编号", value: f.kb_id || "default" },
+    { key: "product_id",  label: "产品编号",   value: f.product_id || "" },
+    { key: "mushroom_type", label: "业务分类",     value: f.mushroom_type || "" },
+  ];
+  document.getElementById("metaEditFields").innerHTML = fields.map(fd =>
+    '<label style="font-size:13px;">'+fd.label+
+    '<input id="meta_'+fd.key+'" value="'+esc(fd.value)+'" style="width:100%;margin-top:4px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;">'+
+    '</label>'
+  ).join("");
+  document.getElementById("metaEditOverlay").dataset.fileId = fileId;
+  document.getElementById("metaEditOverlay").style.display = "flex";
+}
+
+async function saveMetaEdit() {
+  const overlay = document.getElementById("metaEditOverlay");
+  const fileId = overlay.dataset.fileId;
+  if (!fileId) return;
+  const body = {};
+  ["tenant_id","kb_id","product_id","mushroom_type"].forEach(k => {
+    const el = document.getElementById("meta_"+k);
+    if (el) body[k] = el.value;
+  });
+  try {
+    await API.put("/api/files/"+fileId+"/meta", body);
+    toast("已保存" + (body.tenant_id !== undefined || body.kb_id !== undefined ? "，如已入库请重新入库以更新向量" : ""));
+    closeMetaEdit();
+    await loadFiles();
+    refreshFileList();
+    renderWorkflow();
+  } catch(e) {
+    toast("保存失败: "+e.message, "error");
+  }
+}
+
+function closeMetaEdit() {
+  document.getElementById("metaEditOverlay").style.display = "none";
+}
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script async src="https://unpkg.com/lucide@latest"></script>
+<div id="deleteConfirmOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1001;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card,#fff);border-radius:8px;padding:24px;width:min(420px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <h3 style="margin:0 0 16px;font-size:15px;">确认删除</h3>
+    <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;">删除该文档后，文件、切片和相关向量数据将在数据库中永久消失。请输入“确认”后再删除。</div>
+    <input id="deleteConfirmInput" type="text" placeholder="请输入“确认”" oninput="onDeleteConfirmInput()" onkeydown="if(event.key==='Enter' && !document.getElementById('deleteConfirmBtn').disabled) confirmDeleteFile()" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line-strong);border-radius:6px;font-size:13px;">
+    <div style="margin-top:20px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sm" onclick="closeDeleteConfirm()">取消</button>
+      <button class="btn btn-sm btn-danger" id="deleteConfirmBtn" onclick="confirmDeleteFile()" disabled>删除</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

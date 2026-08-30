@@ -1,0 +1,19 @@
+{
+  "name": "wiki-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Wiki frontend (ROADMAP D5/D18) — built with Vite + vanilla JS modules",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "dompurify": "^3.0.0",
+    "marked": "^12.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

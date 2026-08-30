@@ -1,0 +1,99 @@
+# 独立部署：Milvus + Redis + API + Worker
+#
+# 注意：默认端口与 rag 项目的容器（Milvus 19531 / Redis 6380）一致，
+# 若本地已运行 rag 的容器，先停掉或改用其他端口（改 .env 对应值）。
+version: "3.9"
+
+services:
+  milvus:
+    image: milvusdb/milvus:v2.5.4
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_USE_EMBED: "true"
+      COMMON_STORAGETYPE: "local"
+    ports:
+      - "19531:19530"
+    volumes:
+      - milvus_data:/var/lib/milvus
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+
+  # Wiki 域 PostgreSQL（ROADMAP P0-T6）。本地开发可只起这一个服务：
+  #   docker compose up -d postgres
+  # Milvus/Redis 本地仍复用 rag 项目的 test-* 容器。
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: wiki
+      POSTGRES_DB: wiki
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiki"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on: [milvus, redis, postgres]
+    environment:
+      MILVUS_HOST: milvus
+      MILVUS_PORT: "19530"
+      MILVUS_DB: mushroom_rag
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: wiki
+      POSTGRES_DB: wiki
+      # Dedicated `worker` service below already consumes the queue; don't
+      # spawn a second worker inside the API container.
+      AUTO_START_WORKER: "false"
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+
+  worker:
+    build: .
+    restart: unless-stopped
+    depends_on: [api, postgres]
+    command: celery -A tasks.celery_worker worker --loglevel=INFO --concurrency=1
+    environment:
+      MILVUS_HOST: milvus
+      MILVUS_PORT: "19530"
+      MILVUS_DB: mushroom_rag
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: wiki
+      POSTGRES_DB: wiki
+    env_file: .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+
+volumes:
+  milvus_data:
+  redis_data:
+  postgres_data:
