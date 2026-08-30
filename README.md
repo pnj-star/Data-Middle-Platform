@@ -1,144 +1,46 @@
 # Data Middle Platform
 
-文档入库流水线：PDF / Word / PPT / Markdown / 图片 → 转 Markdown → 切片 → 向量化 → 写入 Milvus。
-前端提供上传、转换预览/编辑、切片编辑、入库与 Milvus 数据浏览/管理页面。
+文档入库与知识库管理平台：把 PDF / Word / PPT / Markdown / 图片 等文件转换为 Markdown，经清洗、切分、向量化后写入 Milvus，并提供网页端管理界面。
 
-后端 FastAPI + Celery（Redis broker）异步任务；向量库 Milvus 与 rag 项目共享实例和集合。
+## 功能
 
-## 架构
+### 文档转换
+- PDF / DOCX / PPTX 使用 MinerU GPU 引擎解析，支持版面、OCR、公式、表格提取；HTML / Markdown / TXT 使用内置轻量转换路径，无需外部引擎。
+- 转换结果中的图片会从 Base64 数据中提取并保存，供后续预览和检索使用。
 
-```
-浏览器 ── HTTP ──> FastAPI (main.py)
-                    │  POST 任务 → 写 Redis 队列
-                    ▼
-                  Celery worker (tasks/celery_worker.py)
-                    │  转换(MinerU) → 切片 → 嵌入 → 写入
-                    ▼
-              Milvus (mushroom_knowledge / mushroom_images)
-              SQLite (data/pipeline.db 任务状态/文件元数据)
-```
+### Markdown 清洗
+- 自动修正高置信度的结构问题：粗体编号行升级为标题、超大或纯噪声标题降级为正文、重复标题合并、空标题与页码残留清除。
+- 清理 OCR 排版问题：CJK 文字间多余空格、`<sub>/<sup>` 残留标签、识别失败产生的乱码片段。
+- 长编号行拆分为“标题 + 正文”，编号正文行转换为 Markdown 列表，相邻重复段落自动去重。
 
-- `main.py` — FastAPI 应用 + 全部 HTTP 接口
-- `tasks/celery_worker.py` — Celery 任务（convert / chunk / ingest / 全流程 / 重嵌入）
-- `src/` — 转换(MinerU)、切片、嵌入(bge)、CLIP、图片处理、Milvus 客户端、去重、SQLite
-- `static/index.html` — 单页前端（原生 JS + marked + lucide + DOMPurify）
+### 标题层级重建
+- 根据 MinerU 版面信息把已有 Markdown 标题调整为 H1 / H2 / H3：文档首标题作为 H1，后续页面按版面大小区分章节标题与子项，并清理装饰性页码。
 
-## 快速开始
+### 文档切分
+- 基于 H1 / H2 的父子块切分：H1 作为上下文前缀，H2 章节作为父块，父块内用滑动窗口生成子块，每个子块都保留章节前缀。
+- 按 token 计算长度，可通过参数调整块大小、重叠度、父块回溯和父块上限；超长父块自动截断并保留前缀，表格超限时按标记强制拆分。
 
-```bash
-# 1. 依赖（Python 3.11+）
-pip install -e .
+### 向量化与入库
+- 文本使用 bge 模型生成向量，图片使用 CLIP 生成向量，写入 Milvus 供 RAG 检索。
+- 支持分阶段执行（转换 / 切片 / 入库）和一键全流程；相同内容会按内容指纹自动去重。
 
-# 2. 配置
-cp .env.example .env
-#   填 Milvus / Redis 连接，设置 API_KEY（见下方"安全"）
+### 图片处理
+- 校验格式和大小，统一缩放、归一化后保存，生成 CLIP 向量；可选接入 VLM 生成图片描述，支持图文混合检索。
 
-# 3. 依赖服务：Milvus + Redis
-#    参考 docker-compose.yml（或复用 rag 项目已有的容器）
+### 文件去重
+- 按文件内容 SHA-256 去重，重复文件不会重复入库，也可强制重新入库；物理文件按 `sha256 + 扩展名` 保存，多个逻辑记录共享同一份文件，最后一个引用删除后才清理物理文件。
 
-# 4. 启动 API（会自动拉起 Celery worker + MinerU 服务）
-uvicorn main:app --host 0.0.0.0 --port 8000
-#    MinerU（pdf/docx/pptx GPU 解析）在 MINERU_AUTO_START=true（默认）时也会自动拉起，
-#    前提是独立环境 D:\my_env\mineru_env 已装好 mineru[all] + CUDA torch（首次运行自动下载模型）。
-#    也可手动运行 scripts\start_mineru_api.bat（日志 mineru_api.log）。
-#    启动时自动用当前 Python 解释器拉起 Celery worker（日志写入 celery_worker.log），
-#    无需手动开第二个终端。需要手动控制时：
-#      celery -A tasks.celery_worker worker --loglevel=INFO
-#    已在跑 worker 时会自动跳过；设 AUTO_START_WORKER=false 可关闭自动拉起。
+### 异步任务处理
+- 转换、清洗、切分、入库通过 Celery + Redis 异步执行，前端实时显示任务状态，失败可在对应阶段重新触发。
+- worker 崩溃导致的卡死任务会在下次启动时自动恢复到可继续处理的状态。
 
-# 5. 打开 http://localhost:8000
-```
+### Milvus 数据管理
+- 网页端查看集合统计、按条件检索浏览向量数据，支持单条删除和批量删除。
 
-## 安全
+### Wiki 知识库
+- 空间与页面管理、版本历史、回收站、附件、评论、权限（ACL）、操作审计、API Key 与 JWT 登录；支持向量检索和全文检索。
 
-- **API Key**：默认 `API_KEY` 为空，所有接口开放。上线前务必设置：
-  ```bash
-  python -c "import secrets; print(secrets.token_urlsafe(32))"
-  # 填入 .env 的 API_KEY
-  ```
-  设置后所有 mutating 接口（上传/删除/转换/入库/清理）要求 `X-API-Key` 请求头。
-  前端在页面右上角输入框粘贴同一个 Key（保存在浏览器 localStorage），请求会自动携带。
+### 健康检查
+- 提供 `/health` 接口检查数据库、Milvus、Redis 状态；任一异常时返回降级状态。
 
-- **XSS 防护**：前端所有用户内容（文件名、错误信息、Markdown、chunk 文本、Milvus 内容）均经过 HTML 转义；
-  Markdown 预览经 DOMPurify 清洗。`marked.parse` 不再直接渲染进 DOM。
-
-- **错误信息**：全局异常处理器只向客户端返回通用错误，具体堆栈仅在服务端日志。
-
-## 同名文件处理
-
-Milvus 中每行记录的 `source` 是**文件 UUID**（`files.id`），不是文件名。
-因此两个同名但内容不同的 `report.pdf` 各自独立入库，互不覆盖、互不删除；同名且内容完全相同、范围也相同的文件会被新上传去重拦截。
-展示时后端从 SQLite 反查文件名返回 `source_name` 字段，前端"源文件"列显示文件名。
-
-旧版本按文件名入库的历史数据：仅当该文件名在库中唯一时才按名清理，避免误删同名兄弟文件的向量。
-
-## 文件去重
-
-新上传文件会按内容 SHA-256 在同一租户、知识库、产品 ID 范围内去重；重复时接口返回 409 和已有文件信息。请求带 `force=true` 时可以建立新的逻辑记录。
-
-物理文件按 `sha256 + 原扩展名` 保存，多条记录可以引用同一份文件；删除时只有最后一个引用被删除后才会清理物理文件。原有的父段落级内容去重保留，并按 `tenant_id / kb_id / product_id` 隔离。
-
-## 健康检查
-
-```bash
-curl http://localhost:8000/health
-# {"status":"ok","db":true,"milvus":true,"redis":true}
-```
-任一项异常返回 HTTP 503 与 `status: "degraded"`。
-
-## 卡死任务恢复
-
-Celery worker 设置了软/硬超时（1500s/1800s）。worker 崩溃后，SQLite 中卡在
-`converting` / `chunking` / `ingesting` 超过 `RECOVER_STALE_SECONDS`（默认 3600s）
-的文件会在下次 **worker 或 API 启动时** 自动重置到可恢复的前序状态
-（converting→uploaded，chunking→converted，ingesting→chunked），前端可重新触发对应阶段。
-可用 `RECOVER_STALE_SECONDS` 调整阈值。
-
-## API 一览
-
-| 方法 | 路径 | 说明 | 需 API Key |
-|---|---|---|---|
-| POST | `/api/files/upload` | 上传文件 | ✓ |
-| GET | `/api/files` | 文件列表 | |
-| GET/DELETE | `/api/files/{id}` | 文件详情 / 删除 | 删除 ✓ |
-| POST | `/api/convert/{id}` | 触发转换 | ✓ |
-| GET/PUT | `/api/converted/{id}` | 转换结果 / 编辑 Markdown | 编辑 ✓ |
-| POST | `/api/chunks/{id}` | 触发切片 | ✓ |
-| GET/PUT | `/api/chunks/{id}` | 切片树 / 编辑切片 | 编辑 ✓ |
-| POST | `/api/ingest/{id}` | 触发入库 | ✓ |
-| POST | `/api/ingest-image/{id}` | 图片入库 | ✓ |
-| POST | `/api/ingest-full/{id}` | 一键全流程 | ✓ |
-| GET | `/api/tasks/{id}` | 任务状态 | |
-| GET | `/api/milvus/stats` | 集合统计 | |
-| GET | `/api/milvus/documents` | 检索/浏览（支持分页 page/limit） | |
-| DELETE | `/api/milvus/documents/{id}` | 删除单条 | ✓ |
-| POST | `/api/milvus/batch-delete` | 批量删除 | ✓ |
-| GET | `/api/config` | 前端配置/开关 | |
-| GET | `/health` | 健康检查 | |
-
-## 环境变量
-
-见 [.env.example](.env.example)。核心：
-
-- `MILVUS_*` / `REDIS_*` — Milvus 与 Redis 连接
-- `API_KEY` — mutating 接口认证
-- `EMBEDDER_LOCAL_FILES_ONLY` — 嵌入模型是否仅用本地缓存
-- `MAX_FILE_SIZE_MB` / `MAX_IMAGE_SIZE_MB` — 上传大小上限
-- `AUTO_START_WORKER` — API 启动时是否自动拉起 Celery worker（默认 true）
-- `MINERU_ENABLED` / `MINERU_BASE_URL` / `MINERU_BACKEND` / `MINERU_TIMEOUT_SECONDS` / `MINERU_AUTO_START` / `MINERU_EXECUTABLE` — MinerU 转换后端：pdf/docx/pptx 走 GPU pipeline；启动 API 时自动拉起 `mineru-api`（日志 `mineru_api.log`），也可手动 `scripts/start_mineru_api.bat`
-- html/md/txt 由内置轻量转换路径处理（无需外部引擎）；pdf/docx/pptx 无回退引擎，MinerU 不可用时会明确报错
-- `RECOVER_STALE_SECONDS` — 卡死任务恢复阈值
-
-## 测试
-
-```bash
-python -m pytest tests/ -q
-```
-- 单元/API 测试：`tests/test_main.py`、`tests/test_db.py`、`tests/test_chunker.py` 等
-- 测试对 Milvus / Redis / Celery 打桩，不依赖真实服务
-
-## 与 rag 项目的协作
-
-本项目与 `deep_rag` 共享同一 Milvus 实例与集合（`mushroom_knowledge` / `mushroom_images`）。
-请勿 drop/重建这两个集合（会毁掉 rag 的 dense+sparse 混合索引与已有数据）；
-清空用本项目 Milvus 页面的"全部删除"，而非删除集合。
+部署与详细配置见 [DEPLOY.md](DEPLOY.md) 和 [.env.example](.env.example)。
